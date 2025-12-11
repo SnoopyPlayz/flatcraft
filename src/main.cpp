@@ -71,7 +71,7 @@ void setBlock(Vec3Int pos, int block){
 }
 
 int main(){
-	InitWindow(1280, 720, "test");
+	InitWindow(1280, 720, "flatCraft");
 	SetTargetFPS(60);
 
 	createChunk({0,0,0});
