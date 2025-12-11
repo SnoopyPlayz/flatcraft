@@ -2,7 +2,7 @@
 workspace "HelloWorld"
    configurations { "Debug", "Release" }
    platforms { "Linux64", "Windows64" }
-   defaultplatform "Windows64"
+   defaultplatform "Linux64"
     
     filter "platforms:Windows64"
         architecture "x86_64"
@@ -21,10 +21,11 @@ project "HelloWorld"
    location "build"
 
    includedirs {"lib/raylib/include"}
+   includedirs {"include"}
    -- libdirs { "lib/raylib/lib" }
    --links { "raylib" }
 
-   files { "**.hpp", "src/**.cpp", }
+   files { "include/**.hpp", "src/**.cpp", }
 
    filter "platforms:Windows64"
         libdirs { "lib/raylib_mingw/lib" }
