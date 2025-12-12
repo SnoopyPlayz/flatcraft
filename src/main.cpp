@@ -15,26 +15,46 @@ typedef uint8_t uint8;
 
 const int CHUNK_SIZE = 32;
 
-struct Vec3Int {
-    int32 x;
-    int32 y;
-    int32 z;
+namespace math{
+	int mod(int a, int b){
+		int r = std::div((int)a, (int)b).rem;
+		r += (-(r < 0) & b);
+		return r;
+	}
+}
 
-    bool operator<(const Vec3Int& other) const {
-        if (x != other.x)
-            return x < other.x;
-        
-        if (y != other.y)
-            return y < other.y;
-        
-        return z < other.z;
-    }
+struct Vec3Int {
+	int32 x;
+	int32 y;
+	int32 z;
+
+	bool operator<(const Vec3Int& other) const {
+		if (x != other.x)
+			return x < other.x;
+
+		if (y != other.y)
+			return y < other.y;
+
+		return z < other.z;
+	}
+
+	Vec3Int operator/(const float c) {
+		Vec3Int ret;
+		ret.x = std::floor((float)x / (float)c);
+		ret.y = std::floor((float)y / (float)c);
+		ret.z = std::floor((float)z / (float)c);
+		return ret;
+	}
+
+	Vec3Int mod(int a){
+		return {math::mod(this->x, a), math::mod(this->y, a), math::mod(this->z, a)};
+	}
+
 };
 
 struct chunk {
 	uint8 t[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE];
 };
-
 
 std::map<Vec3Int, chunk> map;
 void createChunk(Vec3Int xyz){
@@ -58,28 +78,21 @@ bool validChunk(Vec3Int pos){
 	return false;
 }
 
-int mod(int a, int b){
-	int r = a % b;
-	if(r < 0) r += b;
-	return r;
-}
-
 typedef enum Block{
 	AIR,
 	GRASS,
 } Block;
 
 Block getBlock(Vec3Int pos){
-	int x = std::floor((float)pos.x / (float)CHUNK_SIZE);
-	int y = std::floor((float)pos.y / (float)CHUNK_SIZE);
-	int z = std::floor((float)pos.z / (float)CHUNK_SIZE);
+	Vec3Int chunkPos = pos / CHUNK_SIZE;
+	Vec3Int localChunkPos = pos.mod(CHUNK_SIZE);
 
-	if (!validChunk({x,y,z})) {
+	if (!validChunk(chunkPos)) {
 		return AIR;
 	}
 
-	chunk& c = findChunk({x,y,z});
-	return (Block)c.t[mod(pos.x,CHUNK_SIZE)][pos.y % CHUNK_SIZE][mod(pos.z,CHUNK_SIZE)];
+	chunk& c = findChunk(chunkPos);
+	return (Block)c.t[localChunkPos.x][localChunkPos.y][localChunkPos.z];
 }
 
 Vec3Int findTopBlock(int x, int y){
@@ -93,34 +106,26 @@ Vec3Int findTopBlock(int x, int y){
 
 
 void setBlock(Vec3Int pos, int block){
+	Vec3Int chunkPos = pos / CHUNK_SIZE;
+	Vec3Int localChunkPos = pos.mod(CHUNK_SIZE);
 
-	int x = std::floor((float)pos.x / (float)CHUNK_SIZE);
-	int y = std::floor((float)pos.y / (float)CHUNK_SIZE);
-	int z = std::floor((float)pos.z / (float)CHUNK_SIZE);
-
-	printf("x:%d \n", x);
-	printf("y:%d \n", y);
-	printf("z:%d \n", z);
-	if (!validChunk({x,y,z})) {
-		createChunk({x,y,z});
+	printf("x:%d \n", chunkPos.x);
+	printf("y:%d \n", chunkPos.y);
+	printf("z:%d \n", chunkPos.z);
+	if (!validChunk(chunkPos)) {
+		createChunk(chunkPos);
 	}
-	chunk& c = findChunk({x,y,z});
-	c.t[mod(pos.x,CHUNK_SIZE)][pos.y % CHUNK_SIZE][mod(pos.z,CHUNK_SIZE)] = block;
-	printf("placing block on X: %d \n", mod(pos.x,CHUNK_SIZE));
-	printf("placing block on z: %d \n", mod(pos.z,CHUNK_SIZE));
+	chunk& c = findChunk(chunkPos);
+	c.t[localChunkPos.x][localChunkPos.y][localChunkPos.z] = block;
+	printf("placing block on X: %d \n", math::mod(pos.x,CHUNK_SIZE));
+	printf("placing block on z: %d \n", math::mod(pos.z,CHUNK_SIZE));
 }
 
 int main(){
-	InitWindow(1280, 720, "flatCraft1");
+	InitWindow(1280, 720, "flatCraft");
 	SetTargetFPS(60);
 
-	createChunk({0,0,0});
-	createChunk({1,0,0});
-	createChunk({0,1,0});
-	createChunk({0,0,1});
-	chunk& c = findChunk({0,0,0});
-	c.t[0][0][0] = 1;
-	c.t[1][0][1] = 1;
+	setBlock({0,0,0},GRASS);
 
 	const int blockSize = 64;
 	Camera2D camera = { 0 };
@@ -138,7 +143,7 @@ int main(){
 
 		if (IsKeyDown(KEY_S))
 			camera.target.y += cameraSpeed;
-		
+
 		if (IsKeyDown(KEY_A))
 			camera.target.x -= cameraSpeed;
 
@@ -147,7 +152,7 @@ int main(){
 
 		if (IsKeyDown(KEY_W))
 			camera.target.y -= cameraSpeed;
-		
+
 
 		for (const auto& pair : map) {
 			for (int x = 0; x < CHUNK_SIZE; x++) {
@@ -171,7 +176,7 @@ int main(){
 			}
 		}
 
-		
+
 		if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
 			Vector2 mouseScreen = GetMousePosition();
 			Vector2 m = GetScreenToWorld2D(mouseScreen, camera);
