@@ -6,6 +6,8 @@
 #include <vector>
 #include "rayUtils.hpp"
 #include <cstdint>
+#include <cmath>
+#include <iostream>
 
 typedef int32_t int32;
 typedef uint8_t uint8;
@@ -36,6 +38,7 @@ struct chunk {
 
 std::map<Vec3Int, chunk> map;
 void createChunk(Vec3Int xyz){
+	printf("Created Chunk %d %d %d", xyz.x, xyz.y, xyz.z);
 	auto result = map.emplace(std::make_pair(xyz, chunk{}));
 	assert(result.second);
 }
@@ -55,10 +58,45 @@ bool validChunk(Vec3Int pos){
 	return false;
 }
 
+int mod(int a, int b){
+	int r = a % b;
+	if(r < 0) r += b;
+	return r;
+}
+
+typedef enum Block{
+	AIR,
+	GRASS,
+} Block;
+
+Block getBlock(Vec3Int pos){
+	int x = std::floor((float)pos.x / (float)CHUNK_SIZE);
+	int y = std::floor((float)pos.y / (float)CHUNK_SIZE);
+	int z = std::floor((float)pos.z / (float)CHUNK_SIZE);
+
+	if (!validChunk({x,y,z})) {
+		return AIR;
+	}
+
+	chunk& c = findChunk({x,y,z});
+	return (Block)c.t[mod(pos.x,CHUNK_SIZE)][pos.y % CHUNK_SIZE][mod(pos.z,CHUNK_SIZE)];
+}
+
+Vec3Int findTopBlock(int x, int y){
+	for(int i = 100; i < -100; i--){
+		if (getBlock({x, i, y}) != AIR){
+			return {x, i, y};
+		}
+	}
+	return {-999,-999,-999}; // TODO change this
+}
+
+
 void setBlock(Vec3Int pos, int block){
-	int x = pos.x / CHUNK_SIZE;
-	int y = pos.y / CHUNK_SIZE;
-	int z = pos.z / CHUNK_SIZE;
+
+	int x = std::floor((float)pos.x / (float)CHUNK_SIZE);
+	int y = std::floor((float)pos.y / (float)CHUNK_SIZE);
+	int z = std::floor((float)pos.z / (float)CHUNK_SIZE);
 
 	printf("x:%d \n", x);
 	printf("y:%d \n", y);
@@ -67,11 +105,13 @@ void setBlock(Vec3Int pos, int block){
 		createChunk({x,y,z});
 	}
 	chunk& c = findChunk({x,y,z});
-	c.t[pos.x % CHUNK_SIZE][pos.y % CHUNK_SIZE][pos.z % CHUNK_SIZE] = block;
+	c.t[mod(pos.x,CHUNK_SIZE)][pos.y % CHUNK_SIZE][mod(pos.z,CHUNK_SIZE)] = block;
+	printf("placing block on X: %d \n", mod(pos.x,CHUNK_SIZE));
+	printf("placing block on z: %d \n", mod(pos.z,CHUNK_SIZE));
 }
 
 int main(){
-	InitWindow(1280, 720, "flatCraft");
+	InitWindow(1280, 720, "flatCraft1");
 	SetTargetFPS(60);
 
 	createChunk({0,0,0});
@@ -136,14 +176,14 @@ int main(){
 			Vector2 mouseScreen = GetMousePosition();
 			Vector2 m = GetScreenToWorld2D(mouseScreen, camera);
 
-			setBlock({(int)m.x / blockSize,0,(int)m.y / blockSize}, 1);
+			setBlock({(int)std::floor(m.x / (float)blockSize),0,(int)std::floor(m.y / (float)blockSize)}, 1);
 		}
 
 		if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
 			Vector2 mouseScreen = GetMousePosition();
 			Vector2 m = GetScreenToWorld2D(mouseScreen, camera);
 
-			setBlock({(int)m.x / blockSize,0,(int)m.y / blockSize}, 0);
+			setBlock({(int)std::floor(m.x / (float)blockSize),0,(int)std::floor(m.y / (float)blockSize)}, 0);
 		}
 
 		EndMode2D();
