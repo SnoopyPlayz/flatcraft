@@ -2,7 +2,7 @@
 workspace "HelloWorld"
    configurations { "Debug", "Release" }
    platforms { "Linux64", "Windows64" }
-   defaultplatform "Windows64"
+   defaultplatform "Linux64"
     
     filter "platforms:Windows64"
         architecture "x86_64"

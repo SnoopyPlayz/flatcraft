@@ -2,11 +2,11 @@
 #include <map>
 #include <string>
 #include <stdio.h>
-using namespace std;
+#include "rayUtils.hpp"
 
-map<string, Texture2D> textureMap;
+std::map<std::string, Texture2D> textureMap;
 
-Texture2D useTexture(string Path){
+Texture2D useTexture(std::string Path){
 	Path = "res/" + Path;
 
 	if (auto search = textureMap.find(Path); search != textureMap.end()){
