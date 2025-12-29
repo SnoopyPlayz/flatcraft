@@ -4,6 +4,7 @@
 #include <map>
 
 const int CHUNK_SIZE = 32;
+const int BLOCK_SIZE = 64;
 
 struct Chunk {
 	uint8_t blocks[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE];
@@ -12,9 +13,12 @@ struct Chunk {
 typedef enum Block{
 	AIR,
 	GRASS,
+	STONE,
 } Block;
 
 extern std::map<Vec3Int, Chunk> map;
+
+void drawMap();
 
 void createChunk(Vec3Int xyz);
 Chunk& findChunk(Vec3Int search_key);

@@ -1,8 +1,6 @@
 #include "vector.hpp"
 #include <cassert>
 #include <raylib.h>
-#include <vector>
-#include <cstdint>
 #include <cmath>
 #include <iostream>
 #include "vector.hpp"
