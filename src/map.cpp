@@ -2,9 +2,11 @@
 #include <cstdio>
 #include <raylib.h>
 #include <vector.hpp>
+#include <vector>
 #include <map>
 #include "map.hpp"
 #include "rayUtils.hpp"
+
 
 std::map<Vec3Int, Chunk> map;
 void createChunk(Vec3Int xyz){
@@ -20,12 +22,14 @@ Chunk& findChunk(Vec3Int search_key){
 	return it->second;
 }
 
-/*std::vector<Chunk> getAllChunks(){
-	std::vector<Chunk> result;
-	for (const auto& pair : map) {
-		result.emplace(pair.second);
+// a func to get all the chunks
+/* std::vector<Chunk*> getAllChunks(){
+	std::vector<Chunk*> chunks;
+	for (auto& pair : map) {
+		chunks.push_back(&pair.second);
 	}
-}*/
+	return chunks;
+	*/
 
 bool validChunk(Vec3Int pos){
 	auto it = map.find(pos);

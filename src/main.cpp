@@ -1,8 +1,10 @@
 #include <camera.hpp>
 #include "map.hpp"
 #include "player.hpp"
+#include "network.hpp"
 
 int main(){
+	testNetwork();
 	InitWindow(1280, 720, "flatCraft");
 	SetTargetFPS(60);
 
@@ -21,4 +23,3 @@ int main(){
 
 	return 0;
 }
-

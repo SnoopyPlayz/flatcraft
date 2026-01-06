@@ -9,7 +9,6 @@
 Player player;
 
 Player::Player(){
-	selctedBlock = GRASS;
 }
 
 void Player::update(){

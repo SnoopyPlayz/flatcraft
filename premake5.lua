@@ -1,4 +1,3 @@
-
 workspace "HelloWorld"
    configurations { "Debug", "Release" }
    platforms { "Linux64", "Windows64" }
@@ -7,7 +6,7 @@ workspace "HelloWorld"
     filter "platforms:Windows64"
         architecture "x86_64"
         system "windows"
-        toolset "mingw"
+        toolset "clang"
     
     filter "platforms:Linux64"
         architecture "x86_64" 
@@ -15,25 +14,32 @@ workspace "HelloWorld"
         toolset "clang"
 
 project "HelloWorld"
-   kind "ConsoleApp"
+   kind "WindowedApp"
    language "C++"
    targetdir "bin/%{cfg.buildcfg}"
    location "build"
 
    includedirs {"lib/raylib/include"}
+   includedirs {"lib/enet"}
    includedirs {"include"}
-   -- libdirs { "lib/raylib/lib" }
-   --links { "raylib" }
 
    files { "include/**.hpp", "src/**.cpp", }
 
    filter "platforms:Windows64"
+   	--gccprefix "x86_64-w64-mingw32-"
+	--linkoptions {"-static"}
+	
+	syslibdirs { "/usr/x86_64-w64-mingw32/lib" }
         libdirs { "lib/raylib_mingw/lib" }
-        links { "raylib", "winmm", "gdi32", "opengl32" }
+        libdirs { "lib/enet_mingw/lib" }
+	buildoptions { "--target=x86_64-w64-mingw32" }
+        linkoptions  { "--target=x86_64-w64-mingw32", "-fuse-ld=lld", "-static"}
+        links { "raylib", "enet", "ws2_32", "winmm", "pthread", "gdi32", "opengl32" }
     
     filter "platforms:Linux64"
         libdirs { "lib/raylib/lib" }
-        links { "raylib", "pthread", "dl", "m" }
+        libdirs { "lib/enet/lib" }
+        links { "raylib", "enet", "pthread", "dl", "m" }
 
    filter "configurations:Debug"
       defines { "DEBUG" }
