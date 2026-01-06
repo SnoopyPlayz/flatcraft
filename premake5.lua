@@ -47,4 +47,7 @@ project "HelloWorld"
 
    filter "configurations:Release"
       defines { "NDEBUG" }
-      optimize "On"
+      optimize "Speed"
+      symbols "Off"
+      linktimeoptimization "On"
+      linkoptions { "-s" }
