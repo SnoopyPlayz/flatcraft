@@ -2,4 +2,4 @@
 #include <string>
 #include <raylib.h>
 
-Texture2D useTexture(std::string Path);
+Texture2D useTexture(const std::string& Path);

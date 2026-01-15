@@ -1,6 +1,6 @@
 #include "player.hpp"
 #include <raylib.h>
-#include <camera.hpp>
+#include "camera.hpp"
 #include "map.hpp"
 
 PlayerCamera playerCamera;

@@ -1,4 +1,4 @@
-workspace "HelloWorld"
+workspace "flatcraft"
    configurations { "Debug", "Release" }
    platforms { "Linux64", "Windows64" }
    defaultplatform "Linux64"
@@ -13,7 +13,7 @@ workspace "HelloWorld"
         system "linux"
         toolset "clang"
 
-project "HelloWorld"
+project "flatcraft"
    kind "WindowedApp"
    language "C++"
    targetdir "bin/%{cfg.buildcfg}"

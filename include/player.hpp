@@ -5,10 +5,9 @@
 
 class Player{
 	public:
-		Player();
 		void update();
 		Vector3 pos;
-		Block selctedBlock = GRASS;
+		Block selectedBlock = GRASS;
 };
 
 extern Player player;

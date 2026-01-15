@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cstdio>
 #include <raylib.h>
 #include "camera.hpp"
 #include "rayUtils.hpp"
@@ -8,14 +7,11 @@
 
 Player player;
 
-Player::Player(){
-}
-
 void Player::update(){
 
 	for (int key = KEY_ZERO; key <= KEY_NINE; key++) {
 		if (IsKeyPressed(key)) {
-			selctedBlock = static_cast<Block>(key - KEY_ZERO);
+			selectedBlock = static_cast<Block>(key - KEY_ZERO);
 		}
 	}
 
@@ -45,12 +41,12 @@ void Player::update(){
 		Vector2 m = GetScreenToWorld2D(mouseScreen, playerCamera.camera);
 		int x = (int)std::floor(m.x / (float)BLOCK_SIZE);
 		int z = (int)std::floor(m.y / (float)BLOCK_SIZE);
-		printf("selctedBlock: %d \n", selctedBlock);
 
-		if (findTopBlock(x, z).y >= 0) {
-			setBlock({x,findTopBlock(x, z).y + 1,z}, selctedBlock);
-		}else{
-			setBlock({x,0,z}, selctedBlock);
+		auto topBlock = findTopBlock(x, z);
+		if (topBlock.has_value()) {
+			setBlock({x, topBlock->y + 1, z}, selectedBlock);
+		} else {
+			setBlock({x, 0, z}, selectedBlock);
 		}
 	}
 
@@ -60,10 +56,11 @@ void Player::update(){
 		int x = (int)std::floor(m.x / (float)BLOCK_SIZE);
 		int z = (int)std::floor(m.y / (float)BLOCK_SIZE);
 
-		if (findTopBlock(x, z).y >= 0) {
-			setBlock({x,findTopBlock(x, z).y,z}, AIR);
-		}else {
-			setBlock({x,0,z}, AIR);
+		auto topBlock = findTopBlock(x, z);
+		if (topBlock.has_value()) {
+			setBlock({x, topBlock->y, z}, AIR);
+		} else {
+			setBlock({x, 0, z}, AIR);
 		}
 	}
 

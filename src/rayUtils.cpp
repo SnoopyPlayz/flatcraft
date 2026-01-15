@@ -6,14 +6,14 @@
 
 std::map<std::string, Texture2D> textureMap;
 
-Texture2D useTexture(std::string Path){
-	Path = "res/" + Path;
+Texture2D useTexture(const std::string& Path){
+	std::string fullPath = "res/" + Path;
 
-	if (auto search = textureMap.find(Path); search != textureMap.end()){
+	if (auto search = textureMap.find(fullPath); search != textureMap.end()){
 		return search->second;
 	}else {
-		Texture2D tex = LoadTexture(Path.c_str());
-		textureMap.insert({Path, tex});
+		Texture2D tex = LoadTexture(fullPath.c_str());
+		textureMap.insert({fullPath, tex});
 		return tex;
 	}
 }

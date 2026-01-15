@@ -1,4 +1,4 @@
-#include <camera.hpp>
+#include "camera.hpp"
 #include "map.hpp"
 #include "player.hpp"
 #include "network.hpp"
@@ -21,5 +21,6 @@ int main(){
 		EndDrawing();
 	}
 
+	CloseWindow();
 	return 0;
 }

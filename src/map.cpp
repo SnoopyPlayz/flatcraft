@@ -1,7 +1,6 @@
 #include <cassert>
-#include <cstdio>
 #include <raylib.h>
-#include <vector.hpp>
+#include "vector.hpp"
 #include <vector>
 #include <map>
 #include "map.hpp"
@@ -9,8 +8,8 @@
 
 
 std::map<Vec3Int, Chunk> map;
+
 void createChunk(Vec3Int xyz){
-	printf("Created Chunk %d %d %d", xyz.x, xyz.y, xyz.z);
 	auto result = map.emplace(std::make_pair(xyz, Chunk{}));
 	assert(result.second);
 }
@@ -21,15 +20,6 @@ Chunk& findChunk(Vec3Int search_key){
 
 	return it->second;
 }
-
-// a func to get all the chunks
-/* std::vector<Chunk*> getAllChunks(){
-	std::vector<Chunk*> chunks;
-	for (auto& pair : map) {
-		chunks.push_back(&pair.second);
-	}
-	return chunks;
-	*/
 
 bool validChunk(Vec3Int pos){
 	auto it = map.find(pos);
@@ -51,13 +41,13 @@ Block getBlock(Vec3Int pos){
 	return (Block)c.blocks[localChunkPos.x][localChunkPos.y][localChunkPos.z];
 }
 
-Vec3Int findTopBlock(int x, int y){
-	for(int i = 100; i > -100; i--){
+std::optional<Vec3Int> findTopBlock(int x, int y){
+	for(int i = MAX_BLOCK_SEARCH_HEIGHT; i > -MAX_BLOCK_SEARCH_HEIGHT; i--){
 		if (getBlock({x, i, y}) != AIR){
-			return {x, i, y};
+			return Vec3Int{x, i, y};
 		}
 	}
-	return {-999,-999,-999}; // TODO change this
+	return std::nullopt;
 }
 
 
@@ -70,9 +60,6 @@ void setBlock(Vec3Int pos, int block){
 	}
 	Chunk& c = findChunk(chunkPos);
 	c.blocks[localChunkPos.x][localChunkPos.y][localChunkPos.z] = block;
-	printf("placing block on X: %d \n", math::mod(pos.x,CHUNK_SIZE));
-	printf("placing block on X: %d \n", math::mod(pos.y,CHUNK_SIZE));
-	printf("placing block on z: %d \n", math::mod(pos.z,CHUNK_SIZE));
 }
 
 void drawMap(){

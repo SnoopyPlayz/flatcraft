@@ -1,10 +1,12 @@
 #pragma once
 #include <cstdint>
-#include <vector.hpp>
+#include "vector.hpp"
 #include <map>
+#include <optional>
 
 const int CHUNK_SIZE = 32;
 const int BLOCK_SIZE = 64;
+const int MAX_BLOCK_SEARCH_HEIGHT = 100;
 
 struct Chunk {
 	uint8_t blocks[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE];
@@ -28,5 +30,5 @@ bool validChunk(Vec3Int pos);
 Block getBlock(Vec3Int pos);
 void setBlock(Vec3Int pos, int block);
 
-Vec3Int findTopBlock(int x, int y);
+std::optional<Vec3Int> findTopBlock(int x, int y);
 
