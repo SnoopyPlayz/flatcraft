@@ -1,7 +1,9 @@
 #include <cassert>
+#include <complex>
 #include <raylib.h>
 #include "vector.hpp"
 #include <vector>
+#include <iostream>
 #include <map>
 #include "map.hpp"
 #include "rayUtils.hpp"
@@ -69,22 +71,28 @@ void drawMap(){
 				for (int z{}; z < CHUNK_SIZE; z++) {
 
 					const int chunk_world_x = pair.first.x * CHUNK_SIZE * BLOCK_SIZE;
+					const int chunk_world_y = pair.first.y * CHUNK_SIZE * BLOCK_SIZE;
 					const int chunk_world_z = pair.first.z * CHUNK_SIZE * BLOCK_SIZE;
 
 					// Local Block Position (relative to chunk start)
 					const int block_local_x = x * BLOCK_SIZE;
+					const int block_local_y = y * BLOCK_SIZE;
 					const int block_local_z = z * BLOCK_SIZE;
 
 					// Final World Position
-					const int world_x = chunk_world_x + block_local_x;
-					const int world_z = chunk_world_z + block_local_z;
+					const float world_x = chunk_world_x + block_local_x;
+					const float world_y = chunk_world_y + block_local_y;
+					const float world_z = chunk_world_z + block_local_z;
 
 					if (pair.second.blocks[x][y][z] == GRASS) {
-						DrawTexture(useTexture("grass.png"), world_x, world_z, ColorContrast(WHITE, y * -0.1));
+						//DrawTexture(useTexture("grass.png"), world_x, world_z, ColorContrast(WHITE, y * -0.1));
+						DrawTexture3D({ world_x / 64, -10, world_z / 64}, "grass.png", WHITE);
+						std::cout << "Drawing grass at " << world_x / 64 << ", " << -10 << ", " << world_z / 64 << "\n";
 					}
 
 					if (pair.second.blocks[x][y][z] == STONE) {
-						DrawTexture(useTexture("stone.png"), world_x, world_z, ColorContrast(WHITE, y * -0.1));
+						//DrawTexture(useTexture("stone.png"), world_x, world_z, ColorContrast(WHITE, y * -0.1));
+						DrawTexture3D({world_x, world_y, world_z}, "stone.png", WHITE);
 					}
 				}
 			}

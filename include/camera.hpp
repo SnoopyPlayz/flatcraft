@@ -5,7 +5,7 @@ class PlayerCamera{
 	public:
 		PlayerCamera();
 		void update();
-		Camera2D camera;
+		Camera3D camera;
 };
 
 extern PlayerCamera playerCamera;

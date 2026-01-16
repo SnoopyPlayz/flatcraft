@@ -1,21 +1,22 @@
+#include "camera.hpp"
 #include "player.hpp"
 #include <raylib.h>
-#include "camera.hpp"
-#include "map.hpp"
 
 PlayerCamera playerCamera;
+const float EPSILON = 0.00001f;
 
-PlayerCamera::PlayerCamera(){
-	camera.target = {0,0};
-	camera.offset = {0,0};
-	camera.zoom = 1;
-	camera.rotation = 0;
+PlayerCamera::PlayerCamera() {
+	camera.target = {0, -1, EPSILON};
+	camera.position = {0, 1, 0};
+	camera.fovy = 10; //zoom
+	camera.projection = CAMERA_ORTHOGRAPHIC;
+	camera.up = {0, 1, 0};
 }
 
-void PlayerCamera::update(){
-	const int cameraSpeed = 10;
+void PlayerCamera::update() {
+	camera.position.z = player.pos.z;
+	camera.target.z = player.pos.z - EPSILON;
+
+	camera.position.x = player.pos.x;
 	camera.target.x = player.pos.x;
-	camera.target.y = player.pos.z;
-	camera.offset.x = GetScreenWidth() * 0.5 - BLOCK_SIZE * 0.5;
-	camera.offset.y = GetScreenHeight() * 0.5 - BLOCK_SIZE * 0.5;
 }

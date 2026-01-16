@@ -23,7 +23,7 @@ project "flatcraft"
    includedirs {"lib/enet"}
    includedirs {"include"}
 
-   files { "include/**.hpp", "src/**.cpp", }
+   files { "include/**.hpp", "src/**.cpp",} --"lib/imgui/imgui.cpp", "lib/imgui/imgui_draw.cpp", "lib/imgui/imgui_widgets.cpp", "lib/imgui/imgui_tables.cpp", "lib/imgui/imgui_demo.cpp"}
 
    filter "platforms:Windows64"
    	--gccprefix "x86_64-w64-mingw32-"

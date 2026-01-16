@@ -2,22 +2,33 @@
 #include "map.hpp"
 #include "player.hpp"
 #include "network.hpp"
+#include "rayUtils.hpp"
+#include "raylib.h"
+#include "debug.hpp"
+#include <iostream>
 
 int main(){
 	testNetwork();
 	InitWindow(1280, 720, "flatCraft");
 	SetTargetFPS(60);
 
+	initRayUtils();
+
+	
 	while (!WindowShouldClose()) {
 		BeginDrawing();
-		ClearBackground(BLACK);
-		BeginMode2D(playerCamera.camera);
+		ClearBackground(DARKGRAY);
+		BeginMode3D(playerCamera.camera);
 
-		drawMap();
 		player.update();
 		playerCamera.update();
+		drawMap();
 
-		EndMode2D();
+		DrawGrid(100, 1);
+
+		EndMode3D();
+
+		debug.draw();
 		EndDrawing();
 	}
 

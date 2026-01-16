@@ -1,6 +1,9 @@
 #include <cmath>
+#include <iostream>
 #include <raylib.h>
+#include <raymath.h>
 #include "camera.hpp"
+#include "debug.hpp"
 #include "rayUtils.hpp"
 #include "map.hpp"
 #include "player.hpp"
@@ -8,55 +11,36 @@
 Player player;
 
 void Player::update(){
+	const float playerSpeed = 0.1;
 
+	// Select block
 	for (int key = KEY_ZERO; key <= KEY_NINE; key++) {
 		if (IsKeyPressed(key)) {
 			selectedBlock = static_cast<Block>(key - KEY_ZERO);
 		}
 	}
 
-	DrawTexture(useTexture("player.png"), pos.x, pos.z, WHITE);
-	const float playerSpeed = 10;
+	// Draw player
+	DrawTexture3D(pos, "player.png", WHITE);
 
-	if (IsKeyDown(KEY_S))
-		pos.z += playerSpeed;
+	Vector3 vel = {0, 0, 0};
 
-	if (IsKeyDown(KEY_A))
-		pos.x -= playerSpeed;
+	vel.x = IsKeyDown(KEY_D) - IsKeyDown(KEY_A);
+	vel.y = IsKeyDown(KEY_SPACE) - IsKeyDown(KEY_LEFT_CONTROL);
+	vel.z = IsKeyDown(KEY_S) - IsKeyDown(KEY_W);
 
-	if (IsKeyDown(KEY_D))
-		pos.x += playerSpeed;
+	pos += Vector3Normalize(vel) * playerSpeed;
 
-	if (IsKeyDown(KEY_W))
-		pos.z -= playerSpeed;
+	Vector2 mouseScreen = GetMousePosition();
+	Vector3 m = GetScreenToWorldRay(mouseScreen, playerCamera.camera).position;
 
-	if (IsKeyPressed(KEY_SPACE))
-		pos.y += 1;
+	int x = std::round(m.x);
+	int z = std::round(m.z);
 
-	if (IsKeyPressed(KEY_LEFT_CONTROL))
-		pos.y -= 1;
+	auto topBlock = findTopBlock(x, z);
 
+	// place/remove block
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-		Vector2 mouseScreen = GetMousePosition();
-		Vector2 m = GetScreenToWorld2D(mouseScreen, playerCamera.camera);
-		int x = (int)std::floor(m.x / (float)BLOCK_SIZE);
-		int z = (int)std::floor(m.y / (float)BLOCK_SIZE);
-
-		auto topBlock = findTopBlock(x, z);
-		if (topBlock.has_value()) {
-			setBlock({x, topBlock->y + 1, z}, selectedBlock);
-		} else {
-			setBlock({x, 0, z}, selectedBlock);
-		}
-	}
-
-	if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-		Vector2 mouseScreen = GetMousePosition();
-		Vector2 m = GetScreenToWorld2D(mouseScreen, playerCamera.camera);
-		int x = (int)std::floor(m.x / (float)BLOCK_SIZE);
-		int z = (int)std::floor(m.y / (float)BLOCK_SIZE);
-
-		auto topBlock = findTopBlock(x, z);
 		if (topBlock.has_value()) {
 			setBlock({x, topBlock->y, z}, AIR);
 		} else {
@@ -65,4 +49,15 @@ void Player::update(){
 	}
 
 
+	if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+		if (topBlock.has_value()) {
+			setBlock({x, topBlock->y + 1, z}, selectedBlock);
+		} else {
+			setBlock({x, 0, z}, selectedBlock);
+		}
+	}
+
+	//Debug info
+	debug.addMessage("Player pos: %RX: " + std::to_string(pos.x) + " %G Y: " + std::to_string(pos.y) + " %B Z: " + std::to_string(pos.z));
+	debug.addMessage("cursor pos: %RX: " + std::to_string(x) + " %BZ: " + std::to_string(z));
 }
