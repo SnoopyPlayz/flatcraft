@@ -10,26 +10,33 @@ std::vector<std::string> messages;
 
 
 void Debug::draw(){
-	if (IsKeyPressed(KEY_F3)){
+	if (IsKeyPressed(KEY_F3)) 
 		enabled = !enabled;
-	}
 	if (!enabled) return;
 
 	const int fontSize = 20;
-
 	int topBarHeight = fontSize;
-	DrawText("Debug menu F3 to disable", 0, 0, fontSize, WHITE);
 	Color color = WHITE;
 
-	for (std::string s : messages) {
+	DrawText("Debug menu F3 to disable", 0, 0, fontSize, WHITE);
+
+	for (const std::string& s : messages) {
 		std::string cText = "";
+
 		for (int i{0}; i < s.size(); i++){
 			char c = s[i];
 
+			// edge case % at end
 			if (c == '%' && i + 1 >= s.size()) { 
 				break;
 			}
 
+			// removal of char after %
+			if (i - 1 >= 0 && s[i - 1] == '%'){
+				continue;
+			}
+
+			// change color
 			if (c == '%'){
 				if (s[i + 1] == 'B') {
 					color = BLUE;
@@ -40,7 +47,6 @@ void Debug::draw(){
 				} else if (s[i + 1] == 'W') {
 					color = WHITE;
 				}
-
 				continue;
 			}
 

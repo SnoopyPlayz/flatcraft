@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdlib>
 #include <enet/enet.h>
 
 int testNetwork(){
