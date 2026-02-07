@@ -9,6 +9,7 @@ int main(){
 	testNetwork();
 	InitWindow(1280, 720, "flatCraft");
 	SetTargetFPS(60);
+	setAndLoadFont("Roboto-VariableFont_wdth,wght.ttf");
 
 	while (!WindowShouldClose()) {
 		BeginDrawing();
