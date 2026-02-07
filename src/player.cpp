@@ -20,7 +20,7 @@ void Player::update(){
 
 	const float playerSpeed = 10;
 	// Draw player
-	DrawTexture(useTexture("player.png"), pos.x, pos.z, WHITE);
+	drawTexture3D(useTexture("player.png"), pos, WHITE);
 
 	Vector3 vel = {0, 0, 0};
 
@@ -32,8 +32,8 @@ void Player::update(){
 
 	Vector2 mouseScreen = GetMousePosition();
 	Vector2 m = GetScreenToWorld2D(mouseScreen, playerCamera.camera);
-	int x = (int)std::floor(m.x / (float)BLOCK_SIZE);
-	int z = (int)std::floor(m.y / (float)BLOCK_SIZE);
+	int x = std::floor(m.x / (float)BLOCK_SIZE);
+	int z = std::floor(m.y / (float)BLOCK_SIZE);
 
 	auto topBlock = findTopBlock(x, z);
 

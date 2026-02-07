@@ -6,7 +6,7 @@
 class Player{
 	public:
 		void update();
-		Vector3 pos;
+		Vector3 pos = {0, 0.5, 0};
 		Block selectedBlock = GRASS;
 };
 

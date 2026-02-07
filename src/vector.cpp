@@ -23,6 +23,22 @@ bool Vec3Int::operator<(const Vec3Int& other) const {
 	return z < other.z;
 }
 
+Vec3Int Vec3Int::operator*(const Vec3Int& other) const{
+	return {x * other.x, y * other.y, z * other.z};
+}
+
+Vec3Int Vec3Int::operator+(const Vec3Int& other) const{
+	return {x + other.x, y + other.y, z + other.z};
+}
+
+Vec3Int Vec3Int::operator-(const Vec3Int& other) const{
+	return {x - other.x, y - other.y, z - other.z};
+}
+
+Vec3Int Vec3Int::operator*(const int other) const{
+	return {x * other, y * other, z * other};
+}
+
 Vec3Int Vec3Int::operator/(const float c) const{
 	Vec3Int ret;
 	ret.x = std::floor((float)x / (float)c);
@@ -33,4 +49,12 @@ Vec3Int Vec3Int::operator/(const float c) const{
 
 Vec3Int Vec3Int::mod(int a) const{
 	return {math::mod(this->x, a), math::mod(this->y, a), math::mod(this->z, a)};
+}
+
+Vector3 Vec3Int::toVec3() const{
+	return {static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)};
+}
+
+Vec3Int toVec3Int(const Vector3& v){
+	return {static_cast<int>(v.x), static_cast<int>(v.y), static_cast<int>(v.z)};
 }

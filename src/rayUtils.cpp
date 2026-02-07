@@ -1,9 +1,13 @@
-#include <iostream>
+#include <algorithm>
 #include <raylib.h>
 #include <map>
 #include <string>
 #include <stdio.h>
+#include <vector>
 #include "rayUtils.hpp"
+#include "debug.hpp"
+#include <concepts>
+#include <iostream>
 
 std::string absolutePath = "res/"; // absolutePath + fullPath + givenPath
 std::map<std::string, Texture2D> textureMap;
@@ -65,4 +69,27 @@ void drawTextSDF(const std::string& text, float posX, float posY, int fontSize, 
 	BeginShaderMode(currentShader);
 	DrawTextEx(fontSDF, text.c_str(), {posX, posY}, fontSize, 0, color);
 	EndShaderMode();
+}
+
+struct Texture2DInstance {
+	Vector3 position;
+	Texture2D texture;
+	Color tint;
+};
+
+std::vector<Texture2DInstance> vertices;
+
+void drawTexture3D(Texture2D texture, Vector3 pos, Color tint){
+	vertices.push_back({{pos.x, pos.y, pos.z}, texture, tint});
+}
+
+void drawAllTextures3D(){
+	std::sort(vertices.begin(), vertices.end(), [](const auto& a, const auto& b) {
+		return (a.position.y < b.position.y);
+	});
+
+	for (const Texture2DInstance& tex: vertices) {
+		DrawTextureV(tex.texture, {tex.position.x, tex.position.z}, tex.tint);
+	}
+	vertices.clear();
 }

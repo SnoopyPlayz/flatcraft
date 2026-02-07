@@ -4,6 +4,7 @@
 #include "network.hpp"
 #include "debug.hpp"
 #include "rayUtils.hpp"
+#include "raylib.h"
 
 int main(){
 	testNetwork();
@@ -19,6 +20,7 @@ int main(){
 		drawMap();
 		player.update();
 		playerCamera.update();
+		drawAllTextures3D();
 
 		EndMode2D();
 		debug.draw();

@@ -1,4 +1,5 @@
 #include "player.hpp"
+#include <cmath>
 #include <raylib.h>
 #include "camera.hpp"
 #include "map.hpp"

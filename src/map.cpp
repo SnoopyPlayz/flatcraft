@@ -1,7 +1,9 @@
 #include <cassert>
 #include <cstdio>
 #include <raylib.h>
+#include "debug.hpp"
 #include "vector.hpp"
+#include <string>
 #include <vector>
 #include <map>
 #include "map.hpp"
@@ -51,7 +53,6 @@ std::optional<Vec3Int> findTopBlock(int x, int y){
 	return std::nullopt;
 }
 
-
 void setBlock(Vec3Int pos, int block){
 	Vec3Int chunkPos = pos / CHUNK_SIZE;
 	Vec3Int localChunkPos = pos.mod(CHUNK_SIZE);
@@ -68,24 +69,27 @@ void drawMap(){
 		for (int x{}; x < CHUNK_SIZE; x++) {
 			for (int y{}; y < CHUNK_SIZE; y++) {
 				for (int z{}; z < CHUNK_SIZE; z++) {
+					if (pair.second.blocks[x][y][z] == AIR) {
+						continue;
+					}
+					
+					// assuming that there is a block at 34 0 0
+					// 1 0 0 chunk position
+					const Vec3Int chunkWorldPos = pair.first;
+					// 2 0 0 block position in chunk
+					const Vec3Int blockChunkPos = Vec3Int{x, y, z};
 
-					const int chunk_world_x = pair.first.x * CHUNK_SIZE * BLOCK_SIZE;
-					const int chunk_world_z = pair.first.z * CHUNK_SIZE * BLOCK_SIZE;
-
-					// Local Block Position (relative to chunk start)
-					const int block_local_x = x * BLOCK_SIZE;
-					const int block_local_z = z * BLOCK_SIZE;
-
-					// Final World Position
-					const int world_x = chunk_world_x + block_local_x;
-					const int world_z = chunk_world_z + block_local_z;
+					// chunk world pos * size of chunk + block chunk pos * pixel size of block
+					// 	     1 0 0 * 32 	   + 2 0 0   	     * 64 = 2176 0 0
+					// 1 0 0 * 32 + 2 0 0 * 64 = 2176 0 0
+					const Vec3Int worldPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos) * BLOCK_SIZE;
 
 					if (pair.second.blocks[x][y][z] == GRASS) {
-						DrawTexture(useTexture("grass.png"), world_x, world_z, ColorContrast(WHITE, y * -0.1));
+						drawTexture3D(useTexture("grass.png"), worldPos.toVec3(), ColorContrast(WHITE, y * -0.1));
 					}
 
 					if (pair.second.blocks[x][y][z] == STONE) {
-						DrawTexture(useTexture("stone.png"), world_x, world_z, ColorContrast(WHITE, y * -0.1));
+						drawTexture3D(useTexture("stone.png"), worldPos.toVec3(), ColorContrast(WHITE, y * -0.1));
 					}
 				}
 			}

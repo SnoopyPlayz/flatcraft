@@ -16,8 +16,10 @@ workspace "flatcraft"
 project "flatcraft"
    kind "WindowedApp"
    language "C++"
+   cppdialect "C++20"
    targetdir "bin/%{cfg.buildcfg}"
    location "build"
+
 
    includedirs {"lib/raylib/include"}
    includedirs {"lib/enet"}
