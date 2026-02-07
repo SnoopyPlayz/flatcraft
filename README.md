@@ -11,7 +11,7 @@ cd flatcraft
 premake5 gmake
 make -j$(nproc)
 ```
-## compiling on windows
+## cross compiling to windows
 add ```config=release_windows64``` to the end of the make command
 
 ## controls
