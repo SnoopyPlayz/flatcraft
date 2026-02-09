@@ -5,12 +5,19 @@
 #include "debug.hpp"
 #include "rayUtils.hpp"
 #include "raylib.h"
+#include "server.hpp"
+#include "client.hpp"
+#include <iostream>
+#include <thread>
+#include <unistd.h>
 
 int main(){
 	testNetwork();
 	InitWindow(1280, 720, "flatCraft");
 	SetTargetFPS(60);
 	setAndLoadFont("Roboto-VariableFont_wdth,wght.ttf");
+	bool server = false;
+	bool initalizedNetworking = false;
 
 	while (!WindowShouldClose()) {
 		BeginDrawing();
@@ -20,8 +27,34 @@ int main(){
 		drawMap();
 		player.update();
 		playerCamera.update();
+
+		if (IsKeyDown(KEY_I)) {
+			sleep(5);
+		}
+
+		if (IsKeyPressed(KEY_L)) {
+			server = true;
+			hostServer();
+			initalizedNetworking = true;
+		}
+
+		if (IsKeyPressed(KEY_K)) {
+			server = false;
+			createClient();
+			initalizedNetworking = true;
+		}
+		if (initalizedNetworking) {
+			if (server) {
+				updateServer();
+			}
+			else {
+				updateClient();
+			}
+		}
+
 		drawAllTextures3D();
 
+		DrawFPS(10, 10);
 		EndMode2D();
 		debug.draw();
 		EndDrawing();

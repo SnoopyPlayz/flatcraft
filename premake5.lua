@@ -1,7 +1,6 @@
 workspace "flatcraft"
    configurations { "Debug", "Release" }
    platforms { "Linux64", "Windows64" }
-   defaultplatform "Linux64"
     
     filter "platforms:Windows64"
         architecture "x86_64"
@@ -21,8 +20,8 @@ project "flatcraft"
    location "build"
 
 
-   includedirs {"lib/raylib/include"}
-   includedirs {"lib/enet"}
+   externalincludedirs {"lib/raylib/include"}
+   externalincludedirs {"lib/enet"}
    includedirs {"include"}
 
    files { "include/**.hpp", "src/**.cpp", }
@@ -43,14 +42,17 @@ project "flatcraft"
         libdirs { "lib/enet/lib" }
         links { "raylib", "enet", "pthread", "dl", "m" }
 
-   filter "configurations:Debug"
+    filter "configurations:Debug"
       defines { "DEBUG" }
       optimize "Debug"
-      buildoptions { "-fsanitize=address", "-fno-omit-frame-pointer" }
-      linkoptions { "-fsanitize=address" }
       symbols "On"
+      warnings "Extra"
+      filter { "system:linux" , "configurations:Debug" }
+          buildoptions { "-fsanitize=address", "-fno-omit-frame-pointer" }
+          linkoptions { "-fsanitize=address" }
+      filter{}
 
-   filter "configurations:Release"
+    filter "configurations:Release"
       defines { "NDEBUG" }
       optimize "Speed"
       symbols "Off"

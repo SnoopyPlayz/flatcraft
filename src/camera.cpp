@@ -14,7 +14,6 @@ PlayerCamera::PlayerCamera(){
 }
 
 void PlayerCamera::update(){
-	const int cameraSpeed = 10;
 	camera.target.x = player.pos.x;
 	camera.target.y = player.pos.z;
 	camera.offset.x = GetScreenWidth() * 0.5 - BLOCK_SIZE * 0.5;

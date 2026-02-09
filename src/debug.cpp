@@ -29,7 +29,7 @@ void Debug::draw() {
 	for (const std::string &s : messages) {
 		std::string cText = "";
 
-		for (int i{0}; i < s.size(); i++) {
+		for (unsigned long i {0}; i < s.size(); i++) {
 			char c = s[i];
 
 			// edge case % at end
@@ -38,7 +38,7 @@ void Debug::draw() {
 			}
 
 			// removal of char after %
-			if (i - 1 >= 0 && s[i - 1] == '%') {
+			if (i > 0 && s[i - 1] == '%') {
 				continue;
 			}
 
