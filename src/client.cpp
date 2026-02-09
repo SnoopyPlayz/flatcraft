@@ -1,9 +1,7 @@
-#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <enet/enet.h>
-#include <iostream>
 #include <stdio.h>
 #include <vector>
 #include "player.hpp"
@@ -14,27 +12,17 @@ ENetHost *client;
 ENetPeer *peer;
 
 void updateClient() {
-	ENetEvent event;
 	static std::vector<Player> players;
-	/* Wait up to 1000 milliseconds for an event. */
-	void *data = (void *)"Client information";
+	ENetEvent event;
+
 	while (enet_host_service(client, &event, 10) > 0) {
 		switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT:
-				printf("A new client connected from %x:%u.\n", 
+				printf("connected to server from %x:%u.\n", 
 						event.peer->address.host, 
 						event.peer->address.port);
-
-				/* Store any relevant client information here. */
-				event.peer->data = data;
-
 				break;
 			case ENET_EVENT_TYPE_RECEIVE:{
-				printf("\n CLIENT: A packet of length %zu containing was received "
-						"from on channel %u.\n",
-						event.packet->dataLength, 
-						event.channelID);
-
 				players.clear();
 				Player * p = (Player*)event.packet->data;
 
@@ -42,16 +30,12 @@ void updateClient() {
 					players.push_back(p[i]);
 				}
 
-				/* Clean up the packet now that we're done using it. */
 				enet_packet_destroy(event.packet);
 				break;
 			}
 			case ENET_EVENT_TYPE_DISCONNECT:
 				printf("%s disconnected.\n", static_cast<char *>(event.peer->data));
-
-				/* Reset the peer's client information. */
-
-				event.peer->data = NULL;
+				players.clear();
 				break;
 
 			case ENET_EVENT_TYPE_NONE:
@@ -66,17 +50,13 @@ void updateClient() {
 	enet_peer_send(peer, 0, packet);
 }
 
-void createClient() {
-	client = enet_host_create(NULL /* create a client host */,
-			1 /* only allow 1 outgoing connection */,
-			2 /* allow up 2 channels to be used, 0 and 1 */,
-			0 /* assume any amount of incoming bandwidth */,
-			0 /* assume any amount of outgoing bandwidth */);
+bool createClient() {
+	// 1 outgoing connection 2 channels any amount of bandwidth
+	client = enet_host_create(NULL, 1, 2, 0, 0);
 
 	if (client == NULL) {
-		fprintf(stderr,
-				"An error occurred while trying to create an ENet client host.\n");
-		exit(EXIT_FAILURE);
+		fprintf(stderr, "An error occurred while trying to create an ENet client host.\n");
+		return false;
 	}
 
 	ENetAddress address;
@@ -91,7 +71,7 @@ void createClient() {
 
 	if (peer == NULL) {
 		fprintf(stderr, "No available peers for initiating an ENet connection.\n");
-		exit(EXIT_FAILURE);
+		return false;
 	}
 
 	/* Wait up to 5 seconds for the connection attempt to succeed. */
@@ -103,7 +83,10 @@ void createClient() {
 		/* received. Reset the peer in the event the 5 seconds   */
 		/* had run out without any significant event.            */
 		enet_peer_reset(peer);
+		enet_host_destroy(client);
 
-		puts("Connection to some.server.net:1234 failed.");
+		puts("Connection to localhost failed.");
+		return false;
 	}
+	return true;
 }

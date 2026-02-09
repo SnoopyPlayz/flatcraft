@@ -1,4 +1,4 @@
 #pragma once
 
-void createClient();
+bool createClient();
 void updateClient();

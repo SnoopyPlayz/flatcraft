@@ -12,6 +12,5 @@ int testNetwork(){
 		return EXIT_FAILURE;
 	}
 	printf("ENet initialized successfully\n");
-	atexit (enet_deinitialize);
 	return 0;
 }

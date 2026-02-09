@@ -7,8 +7,7 @@
 #include "raylib.h"
 #include "server.hpp"
 #include "client.hpp"
-#include <iostream>
-#include <thread>
+#include <enet/enet.h>
 #include <unistd.h>
 
 int main(){
@@ -34,14 +33,12 @@ int main(){
 
 		if (IsKeyPressed(KEY_L)) {
 			server = true;
-			hostServer();
-			initalizedNetworking = true;
+			initalizedNetworking = hostServer();
 		}
 
 		if (IsKeyPressed(KEY_K)) {
 			server = false;
-			createClient();
-			initalizedNetworking = true;
+			initalizedNetworking = createClient();
 		}
 		if (initalizedNetworking) {
 			if (server) {
@@ -59,7 +56,7 @@ int main(){
 		debug.draw();
 		EndDrawing();
 	}
-
+	enet_deinitialize();
 	CloseWindow();
 	return 0;
 }

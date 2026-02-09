@@ -1,4 +1,4 @@
 #pragma once
 
-int hostServer();
+bool hostServer();
 void updateServer();
