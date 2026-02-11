@@ -2,20 +2,34 @@
 #include <cstdlib>
 #include <cstring>
 #include <enet/enet.h>
+#include <iostream>
 #include <stdio.h>
+#include <sys/types.h>
+#include <utility>
 #include <vector>
+#include "map.hpp"
 #include "player.hpp"
+#include "network.hpp"
 #include "rayUtils.hpp"
 
 // client globals
 ENetHost *client;
 ENetPeer *peer;
 
+// appends the startPtr pointer. size in number of elements not bytes
+template <typename T>
+std::vector<T> unpackPacket(const ENetPacket& packet, u_int64_t& startPtr, unsigned long size){
+	std::vector<T> dataVector;
+	dataVector.insert(dataVector.end(), (T*)(packet.data + startPtr), (T*)(packet.data + startPtr) + size);
+	startPtr += size * sizeof(T);
+	return dataVector;
+}
+
 void updateClient() {
-	static std::vector<Player> players;
+	static std::vector<PlayerData> players;
 	ENetEvent event;
 
-	while (enet_host_service(client, &event, 10) > 0) {
+	while (enet_host_service(client, &event, 0) > 0) {
 		switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT:
 				printf("connected to server from %x:%u.\n", 
@@ -24,26 +38,37 @@ void updateClient() {
 				break;
 			case ENET_EVENT_TYPE_RECEIVE:{
 				players.clear();
-				Player * p = (Player*)event.packet->data;
 
-				for (unsigned long i = {0}; i < event.packet->dataLength / sizeof(Player); i++) {
-					players.push_back(p[i]);
+				unsigned long ptrPos = 0;
+				// get the amount of player and chunks in the packet
+				u_int64_t playersSize = unpackPacket<u_int64_t>(*(event.packet), ptrPos, 1)[0];
+				u_int64_t chunkSize = unpackPacket<u_int64_t>(*(event.packet), ptrPos, 1)[0];
+
+				players = unpackPacket<PlayerData>(*(event.packet), ptrPos, playersSize);
+
+				std::vector<ChunkData> chunks = unpackPacket<ChunkData>(*(event.packet), ptrPos, chunkSize);
+
+				for (const ChunkData& chunkData : chunks) {
+					findOrCreateChunk(chunkData.pos) = std::move(chunkData.chunk);
 				}
 
 				enet_packet_destroy(event.packet);
 				break;
 			}
 			case ENET_EVENT_TYPE_DISCONNECT:
-				printf("%s disconnected.\n", static_cast<char *>(event.peer->data));
+				puts("disconnected from server");
 				players.clear();
 				break;
-
 			case ENET_EVENT_TYPE_NONE:
 				break;
 		}
 	}
-	for (Player p : players) {
-		drawTexture3D(useTexture("player.png"), p.pos, WHITE);
+
+	for (PlayerData playerClient : players) {
+		if (playerClient.peer == peer->connectID) {
+			continue;
+		}
+		drawTexture3D(useTexture("player.png"), playerClient.player.pos, WHITE);
 	}
 	ENetPacket *packet = enet_packet_create(static_cast<void *>(&player), sizeof(player), ENET_PACKET_FLAG_RELIABLE);
 
@@ -51,8 +76,7 @@ void updateClient() {
 }
 
 bool createClient() {
-	// 1 outgoing connection 2 channels any amount of bandwidth
-	client = enet_host_create(NULL, 1, 2, 0, 0);
+	client = enet_host_create(NULL, 1/*maxClients*/, 2/*maxChannels*/, 0/*incomingBandwidth*/, 0/*outgoingBandwidth*/);
 
 	if (client == NULL) {
 		fprintf(stderr, "An error occurred while trying to create an ENet client host.\n");
@@ -62,29 +86,28 @@ bool createClient() {
 	ENetAddress address;
 	ENetEvent event;
 
-	/* Connect to some.server.net:1234. */
+	// connect to localhost
 	enet_address_set_host(&address, "localhost");
 	address.port = 1234;
 
-	/* Initiate the connection, allocating the two channels 0 and 1. */
-	peer = enet_host_connect(client, &address, 2, 0);
+	peer = enet_host_connect(client, &address, 1/*chanel amount*/, 0/*data to give host*/);
 
 	if (peer == NULL) {
 		fprintf(stderr, "No available peers for initiating an ENet connection.\n");
 		return false;
 	}
+	if (enet_host_compress_with_range_coder(client) < 0) {
+		fprintf(stderr, "An error occurred while trying to set the ENet compression method.\n");
+		return false;
+	}
 
-	/* Wait up to 5 seconds for the connection attempt to succeed. */
-	if (enet_host_service(client, &event, 5000) > 0 &&
-			event.type == ENET_EVENT_TYPE_CONNECT) {
+
+	// 5 sec timeout for connection
+	if (enet_host_service(client, &event, 5000) > 0 && event.type == ENET_EVENT_TYPE_CONNECT) {
 		puts("Connection to localhost succeeded.");
 	} else {
-		/* Either the 5 seconds are up or a disconnect event was */
-		/* received. Reset the peer in the event the 5 seconds   */
-		/* had run out without any significant event.            */
 		enet_peer_reset(peer);
 		enet_host_destroy(client);
-
 		puts("Connection to localhost failed.");
 		return false;
 	}

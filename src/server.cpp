@@ -3,32 +3,77 @@
 #include <cstdlib>
 #include <cstring>
 #include <enet/enet.h>
+#include <enet/types.h>
 #include <iostream>
 #include "player.hpp"
 #include "rayUtils.hpp"
+#include "network.hpp"
 #include "server.hpp"
+#include "map.hpp"
 #include <stdio.h>
+#include <sys/types.h>
 #include <unordered_map>
 #include <vector>
 
 // server globals
 ENetAddress address;
 ENetHost *server;
-std::unordered_map<ENetPeer *, std::optional<Player>> clients;
+
+std::vector<uint8_t> packetBuffer;
+void addToPacketTemp(void *data, size_t size) {
+	const uint8_t* byteData = static_cast<const uint8_t*>(data);
+	packetBuffer.insert(packetBuffer.end(), byteData, byteData + size);
+}
+
+void freePacketTemp() {
+	packetBuffer.clear();
+}
 
 void updateServer() {
-	ENetEvent event;
+	static std::unordered_map<ENetPeer *, std::optional<Player>> clients;
+	std::vector<PlayerData> playerDataVec;
+	std::vector<ChunkData> chunksVec;
+	playerDataVec.reserve(clients.size());
+	chunksVec.reserve(map.size());
 
-	while (enet_host_service(server, &event, 10) > 0) {
+	playerDataVec.push_back({player, 1}); // adding the servers player
+	
+	// remove nullopt and convert to PlayerData vector
+	for (const auto& [uniquePeers, uniquePlayer] : clients) {
+		if (!uniquePlayer) continue;
+		playerDataVec.push_back({*uniquePlayer, uniquePeers->connectID});
+	}
+	// convert map to vector of ChunkData
+	for (const auto& [pos, chunk] : map){
+		chunksVec.push_back({chunk, pos});
+	}
+
+	u_int64_t playerDataVecSize = playerDataVec.size();
+	u_int64_t chunksVecSize = chunksVec.size();
+	// send vector size data
+	addToPacketTemp((void *)&playerDataVecSize, sizeof(u_int64_t));
+	addToPacketTemp((void *)&chunksVecSize, sizeof(u_int64_t));
+	// send vector data
+	addToPacketTemp(playerDataVec.data(), playerDataVec.size() * sizeof(PlayerData));
+	addToPacketTemp(chunksVec.data(), chunksVec.size() * sizeof(ChunkData));
+
+	for (const auto& [peer, clientP] : clients) {
+		// draw players for server client
+		drawTexture3D(useTexture("player.png"), clientP->pos, WHITE);
+
+		ENetPacket* packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_UNSEQUENCED);
+		enet_peer_send(peer, 0, packet);
+	}
+	freePacketTemp();
+
+	ENetEvent event;
+	while (enet_host_service(server, &event, 0) > 0) {
 		switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT:
 				printf("A client connected from %x:%u.\n", event.peer->address.host, event.peer->address.port);
 				clients[event.peer] = std::nullopt;
 				break;
 			case ENET_EVENT_TYPE_RECEIVE: {
-				printf("\n SERVER: A packet length: %zu channel: %u.\n",
-						event.packet->dataLength, 
-						event.channelID);
 				// set player in the map
 				auto it = clients.find(event.peer);
 				assert(it != clients.end());
@@ -38,34 +83,12 @@ void updateServer() {
 				break;
 			}
 			case ENET_EVENT_TYPE_DISCONNECT:
-				printf("%s client disconnected.\n", static_cast<char *>(event.peer->data));
+				puts("disconnected from server");
 				clients.erase(event.peer);
 				break;
 			case ENET_EVENT_TYPE_NONE:
 				break;
 		}
-	}
-
-	
-	for (const auto& [peer, clientP] : clients) {
-		// draw players for server client
-		drawTexture3D(useTexture("player.png"), clientP->pos, WHITE);
-
-		// send all players to the player other than its self
-		std::vector<Player> uniquePlayers;
-		for (const auto& [uniquePeers, uniquePlayer] : clients) {
-			if (peer == uniquePeers || peer == nullptr || uniquePlayer == std::nullopt) 
-				continue;
-
-			std::cout << "sending player pos: " << uniquePlayer->pos.x << std::endl;
-			uniquePlayers.push_back(uniquePlayer.value());
-		}
-
-		uniquePlayers.push_back(player); // adding the servers player
-
-		ENetPacket * packet = enet_packet_create (uniquePlayers.data(), uniquePlayers.size() * sizeof(Player), ENET_PACKET_FLAG_RELIABLE);
-
-		enet_peer_send(peer, 0, packet);
 	}
 }
 
@@ -73,12 +96,17 @@ bool hostServer() {
 	address.host = ENET_HOST_ANY;
 	address.port = 1234;
 
-	server = enet_host_create(&address, 32, 2, 0, 0);
+	server = enet_host_create(&address, 32/*maxClients*/, 2/*maxChannels*/, 0/*incomingBandwidth*/, 0/*outgoingBandwidth*/);
 
 	if (server == NULL) {
-		fprintf(stderr, "An error occurred while trying to create an ENet server host.\n");
+		fprintf(stderr, "Cant create Enet server \n");
 		return false;
 	}
-	printf("ENet server host created successfully\n");
+
+	if (enet_host_compress_with_range_coder(server) < 0){
+		fprintf(stderr, "Cant set compression \n");
+		return false;
+	}
+	printf("server created successfully\n");
 	return true;
 }

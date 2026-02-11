@@ -12,16 +12,24 @@
 
 std::map<Vec3Int, Chunk> map;
 
-void createChunk(Vec3Int xyz){
-	auto result = map.emplace(std::make_pair(xyz, Chunk{}));
+void createChunk(Vec3Int pos){
+	auto result = map.emplace(std::make_pair(pos, Chunk{}));
 	assert(result.second);
 }
 
-Chunk& findChunk(Vec3Int search_key){
-	auto it = map.find(search_key);
-	assert(it != map.end());
+Chunk& findChunk(Vec3Int pos){
+	auto it = map.find(pos);
+	assert(it != map.end() && "cant find chunk");
 
 	return it->second;
+}
+
+Chunk& findOrCreateChunk(Vec3Int pos){
+	if (validChunk(pos))
+		return findChunk(pos);
+
+	createChunk(pos);
+	return findChunk(pos);
 }
 
 bool validChunk(Vec3Int pos){
@@ -62,6 +70,7 @@ void setBlock(Vec3Int pos, int block){
 	}
 	Chunk& c = findChunk(chunkPos);
 	c.blocks[localChunkPos.x][localChunkPos.y][localChunkPos.z] = block;
+	c.changed = true;
 }
 
 void drawMap(){

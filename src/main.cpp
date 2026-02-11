@@ -28,7 +28,7 @@ int main(){
 		playerCamera.update();
 
 		if (IsKeyDown(KEY_I)) {
-			sleep(5);
+			sleep(1);
 		}
 
 		if (IsKeyPressed(KEY_L)) {
