@@ -4,6 +4,7 @@
 #include "enet/enet.h"
 
 int testNetwork();
+void updateNetwork();
 
 struct ChunkData{
 	Chunk chunk;

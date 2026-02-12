@@ -32,8 +32,8 @@ void freePacketTemp() {
 }
 
 void updateServer(std::stop_token st) {
+	std::unordered_map<ENetPeer *, std::optional<Player>> clients;
 	while (!st.stop_requested()) {
-	static std::unordered_map<ENetPeer *, std::optional<Player>> clients;
 	std::vector<PlayerData> playerDataVec;
 	std::vector<ChunkData> chunksVec;
 	playerDataVec.reserve(clients.size());
@@ -98,6 +98,12 @@ void updateServer(std::stop_token st) {
 	}
 	std::this_thread::sleep_for(std::chrono::milliseconds(30));
 	}
+
+	// send a disconnect packet to all clients
+	for (const auto& [peer, clientP] : clients) {
+		enet_peer_disconnect(peer, 0);
+	}
+	enet_host_flush(server);
 }
 
 bool hostServer() {

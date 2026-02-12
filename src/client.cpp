@@ -51,7 +51,6 @@ void updateClient(std::stop_token st) {
 						event.peer->address.port);
 				break;
 			case ENET_EVENT_TYPE_RECEIVE:{
-
 				unsigned long ptrPos = 0;
 				// get the amount of player and chunks in the packet
 				u_int64_t playersSize = unpackPacket<u_int64_t>(*(event.packet), ptrPos, 1)[0];
@@ -87,13 +86,16 @@ void updateClient(std::stop_token st) {
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(30));
 	}
+	// send a disconnect packet to the server
+	enet_peer_disconnect(peer, 0);
+	enet_host_flush(client);
 }
 
 bool createClient() {
 	client = enet_host_create(NULL, 1/*maxClients*/, 2/*maxChannels*/, 0/*incomingBandwidth*/, 0/*outgoingBandwidth*/);
 
 	if (client == NULL) {
-		fprintf(stderr, "An error occurred while trying to create an ENet client host.\n");
+		fprintf(stderr, "Cant create Enet host\n");
 		return false;
 	}
 
@@ -111,10 +113,9 @@ bool createClient() {
 		return false;
 	}
 	if (enet_host_compress_with_range_coder(client) < 0) {
-		fprintf(stderr, "An error occurred while trying to set the ENet compression method.\n");
+		fprintf(stderr, "Cant set compression \n");
 		return false;
 	}
-
 
 	// 5 sec timeout for connection
 	if (enet_host_service(client, &event, 5000) > 0 && event.type == ENET_EVENT_TYPE_CONNECT) {
