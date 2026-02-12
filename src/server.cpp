@@ -5,12 +5,14 @@
 #include <enet/enet.h>
 #include <enet/types.h>
 #include <iostream>
+#include "debug.hpp"
 #include "player.hpp"
 #include "rayUtils.hpp"
 #include "network.hpp"
 #include "server.hpp"
 #include "map.hpp"
 #include <stdio.h>
+#include <stop_token>
 #include <sys/types.h>
 #include <unordered_map>
 #include <vector>
@@ -29,7 +31,8 @@ void freePacketTemp() {
 	packetBuffer.clear();
 }
 
-void updateServer() {
+void updateServer(std::stop_token st) {
+	while (!st.stop_requested()) {
 	static std::unordered_map<ENetPeer *, std::optional<Player>> clients;
 	std::vector<PlayerData> playerDataVec;
 	std::vector<ChunkData> chunksVec;
@@ -58,6 +61,9 @@ void updateServer() {
 	addToPacketTemp(chunksVec.data(), chunksVec.size() * sizeof(ChunkData));
 
 	for (const auto& [peer, clientP] : clients) {
+		if (!clientP) {// this may not be needed TODO FIXME
+			std::cout << "skipping client with id: " << peer->connectID << " because it has no player data" << std::endl;
+		}
 		// draw players for server client
 		drawTexture3D(useTexture("player.png"), clientP->pos, WHITE);
 
@@ -90,11 +96,13 @@ void updateServer() {
 				break;
 		}
 	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(30));
+	}
 }
 
 bool hostServer() {
 	address.host = ENET_HOST_ANY;
-	address.port = 1234;
+	address.port = 1236;
 
 	server = enet_host_create(&address, 32/*maxClients*/, 2/*maxChannels*/, 0/*incomingBandwidth*/, 0/*outgoingBandwidth*/);
 

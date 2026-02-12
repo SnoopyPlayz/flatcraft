@@ -47,9 +47,9 @@ project "flatcraft"
       optimize "Debug"
       symbols "On"
       warnings "Extra"
-      filter { "system:linux" , "configurations:Debug" }
-          buildoptions { "-fsanitize=address", "-fno-omit-frame-pointer" }
-          linkoptions { "-fsanitize=address" }
+      --filter { "system:linux" , "configurations:Debug" }
+      --    buildoptions { "-fsanitize=address", "-fno-omit-frame-pointer" }
+      --    linkoptions { "-fsanitize=address" }
       filter{}
 
     filter "configurations:Release"

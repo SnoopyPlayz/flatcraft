@@ -4,6 +4,7 @@
 #include <enet/enet.h>
 #include <iostream>
 #include <stdio.h>
+#include <stop_token>
 #include <sys/types.h>
 #include <utility>
 #include <vector>
@@ -25,8 +26,21 @@ std::vector<T> unpackPacket(const ENetPacket& packet, u_int64_t& startPtr, unsig
 	return dataVector;
 }
 
-void updateClient() {
-	static std::vector<PlayerData> players;
+std::vector<PlayerData> players;
+std::mutex playersMtx;
+
+void drawClients(){
+	std::lock_guard<std::mutex> lock(playersMtx);
+	for (PlayerData playerClient : players) {
+		if (playerClient.peer == peer->connectID) {
+			continue;
+		}
+		drawTexture3D(useTexture("player.png"), playerClient.player.pos, WHITE);
+	}
+}
+
+void updateClient(std::stop_token st) {
+	while (!st.stop_requested()) {
 	ENetEvent event;
 
 	while (enet_host_service(client, &event, 0) > 0) {
@@ -37,14 +51,17 @@ void updateClient() {
 						event.peer->address.port);
 				break;
 			case ENET_EVENT_TYPE_RECEIVE:{
-				players.clear();
 
 				unsigned long ptrPos = 0;
 				// get the amount of player and chunks in the packet
 				u_int64_t playersSize = unpackPacket<u_int64_t>(*(event.packet), ptrPos, 1)[0];
 				u_int64_t chunkSize = unpackPacket<u_int64_t>(*(event.packet), ptrPos, 1)[0];
 
-				players = unpackPacket<PlayerData>(*(event.packet), ptrPos, playersSize);
+				{
+					std::lock_guard<std::mutex> lock(playersMtx);
+					players.clear();
+					players = unpackPacket<PlayerData>(*(event.packet), ptrPos, playersSize);
+				}
 
 				std::vector<ChunkData> chunks = unpackPacket<ChunkData>(*(event.packet), ptrPos, chunkSize);
 
@@ -64,15 +81,12 @@ void updateClient() {
 		}
 	}
 
-	for (PlayerData playerClient : players) {
-		if (playerClient.peer == peer->connectID) {
-			continue;
-		}
-		drawTexture3D(useTexture("player.png"), playerClient.player.pos, WHITE);
-	}
 	ENetPacket *packet = enet_packet_create(static_cast<void *>(&player), sizeof(player), ENET_PACKET_FLAG_RELIABLE);
 
 	enet_peer_send(peer, 0, packet);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(30));
+	}
 }
 
 bool createClient() {
@@ -88,7 +102,7 @@ bool createClient() {
 
 	// connect to localhost
 	enet_address_set_host(&address, "localhost");
-	address.port = 1234;
+	address.port = 1236;
 
 	peer = enet_host_connect(client, &address, 1/*chanel amount*/, 0/*data to give host*/);
 

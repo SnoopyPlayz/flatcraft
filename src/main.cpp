@@ -8,6 +8,7 @@
 #include "server.hpp"
 #include "client.hpp"
 #include <enet/enet.h>
+#include <thread>
 #include <unistd.h>
 
 int main(){
@@ -15,8 +16,7 @@ int main(){
 	InitWindow(1280, 720, "flatCraft");
 	SetTargetFPS(60);
 	setAndLoadFont("Roboto-VariableFont_wdth,wght.ttf");
-	bool server = false;
-	bool initalizedNetworking = false;
+	std::jthread networkThread;
 
 	while (!WindowShouldClose()) {
 		BeginDrawing();
@@ -32,23 +32,18 @@ int main(){
 		}
 
 		if (IsKeyPressed(KEY_L)) {
-			server = true;
-			initalizedNetworking = hostServer();
+			if (hostServer()){
+				networkThread = std::jthread(updateServer);
+			}
 		}
 
 		if (IsKeyPressed(KEY_K)) {
-			server = false;
-			initalizedNetworking = createClient();
-		}
-		if (initalizedNetworking) {
-			if (server) {
-				updateServer();
-			}
-			else {
-				updateClient();
+			if (createClient()) {
+				networkThread = std::jthread(updateClient);
 			}
 		}
 
+		drawClients();
 		drawAllTextures3D();
 
 		DrawFPS(10, 10);
