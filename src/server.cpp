@@ -11,6 +11,7 @@
 #include "network.hpp"
 #include "server.hpp"
 #include "map.hpp"
+#include <iterator>
 #include <stdio.h>
 #include <stop_token>
 #include <sys/types.h>
@@ -20,16 +21,6 @@
 // server globals
 ENetAddress address;
 ENetHost *server;
-
-std::vector<uint8_t> packetBuffer;
-void addToPacketTemp(void *data, size_t size) {
-	const uint8_t* byteData = static_cast<const uint8_t*>(data);
-	packetBuffer.insert(packetBuffer.end(), byteData, byteData + size);
-}
-
-void freePacketTemp() {
-	packetBuffer.clear();
-}
 
 void updateServer(std::stop_token st) {
 	std::unordered_map<ENetPeer *, std::optional<Player>> clients;
@@ -50,15 +41,16 @@ void updateServer(std::stop_token st) {
 	for (const auto& [pos, chunk] : map){
 		chunksVec.push_back({chunk, pos});
 	}
+	std::vector<uint8_t> packetBuffer; // the packet that will be sent
 
 	u_int64_t playerDataVecSize = playerDataVec.size();
 	u_int64_t chunksVecSize = chunksVec.size();
 	// send vector size data
-	addToPacketTemp((void *)&playerDataVecSize, sizeof(u_int64_t));
-	addToPacketTemp((void *)&chunksVecSize, sizeof(u_int64_t));
+	addToPacketTemp(packetBuffer, (void *)&playerDataVecSize, sizeof(u_int64_t));
+	addToPacketTemp(packetBuffer, (void *)&chunksVecSize, sizeof(u_int64_t));
 	// send vector data
-	addToPacketTemp(playerDataVec.data(), playerDataVec.size() * sizeof(PlayerData));
-	addToPacketTemp(chunksVec.data(), chunksVec.size() * sizeof(ChunkData));
+	addToPacketTemp(packetBuffer, playerDataVec.data(), playerDataVec.size() * sizeof(PlayerData));
+	addToPacketTemp(packetBuffer, chunksVec.data(), chunksVec.size() * sizeof(ChunkData));
 
 	for (const auto& [peer, clientP] : clients) {
 		if (!clientP) {// this may not be needed TODO FIXME
@@ -70,7 +62,6 @@ void updateServer(std::stop_token st) {
 		ENetPacket* packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_UNSEQUENCED);
 		enet_peer_send(peer, 0, packet);
 	}
-	freePacketTemp();
 
 	ENetEvent event;
 	while (enet_host_service(server, &event, 0) > 0) {
@@ -81,9 +72,19 @@ void updateServer(std::stop_token st) {
 				break;
 			case ENET_EVENT_TYPE_RECEIVE: {
 				// set player in the map
+				unsigned long ptrPos = 0;
+				u_int64_t blockUpdateSize = unpackPacket<u_int64_t>(*(event.packet), ptrPos, 1)[0];
+				Player player = unpackPacket<Player>(*(event.packet), ptrPos, 1)[0];
+
+				std::vector<BlockUpdatePacket> blockUpdates = unpackPacket<BlockUpdatePacket>(*(event.packet), ptrPos, blockUpdateSize);
+
 				auto it = clients.find(event.peer);
 				assert(it != clients.end());
-				it->second = *(Player*)event.packet->data;
+				it->second = player;
+
+				for (const BlockUpdatePacket& blockUpdate : blockUpdates) {
+					setBlock(blockUpdate.pos, blockUpdate.block);
+				}
 
 				enet_packet_destroy(event.packet);
 				break;

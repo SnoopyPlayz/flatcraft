@@ -7,8 +7,10 @@
 #include "map.hpp"
 #include "debug.hpp"
 #include "player.hpp"
+#include "network.hpp"
 
 Player player;
+std::vector<BlockUpdatePacket> blockUpdates;
 
 void Player::update(){
 	// Select block
@@ -38,18 +40,25 @@ void Player::update(){
 	auto topBlock = findTopBlock(x, z);
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+		//std::lock_guard<std::mutex> lock(blockUpdateMutex);
 		if (topBlock.has_value()) {
 			setBlock({x, topBlock->y + 1, z}, selectedBlock);
+			blockUpdates.push_back({{x, topBlock->y + 1, z}, selectedBlock});
+
 		} else {
 			setBlock({x, 0, z}, selectedBlock);
+			blockUpdates.push_back({{x, 0, z}, selectedBlock});
 		}
 	}
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+		//std::lock_guard<std::mutex> lock(blockUpdateMutex);
 		if (topBlock.has_value()) {
 			setBlock({x, topBlock->y, z}, AIR);
+			blockUpdates.push_back({{x, topBlock->y, z}, AIR});
 		} else {
 			setBlock({x, 0, z}, AIR);
+			blockUpdates.push_back({{x, 0, z}, AIR});
 		}
 	}
 

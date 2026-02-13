@@ -9,6 +9,7 @@
 #include <thread>
 #include "client.hpp"
 #include <raylib.h>
+#include <vector>
 
 int testNetwork(){
 	if (enet_initialize () != 0){
@@ -34,4 +35,9 @@ void updateNetwork(){
 			networkThread = std::jthread(updateClient);
 		}
 	}
+}
+
+void addToPacketTemp(std::vector<uint8_t>& packetBuffer, void *data, size_t size) {
+	const uint8_t* byteData = static_cast<const uint8_t*>(data);
+	packetBuffer.insert(packetBuffer.end(), byteData, byteData + size);
 }

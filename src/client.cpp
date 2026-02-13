@@ -9,29 +9,20 @@
 #include <utility>
 #include <vector>
 #include "map.hpp"
-#include "player.hpp"
 #include "network.hpp"
+#include "player.hpp"
 #include "rayUtils.hpp"
 
 // client globals
 ENetHost *client;
 ENetPeer *peer;
 
-// appends the startPtr pointer. size in number of elements not bytes
-template <typename T>
-std::vector<T> unpackPacket(const ENetPacket& packet, u_int64_t& startPtr, unsigned long size){
-	std::vector<T> dataVector;
-	dataVector.insert(dataVector.end(), (T*)(packet.data + startPtr), (T*)(packet.data + startPtr) + size);
-	startPtr += size * sizeof(T);
-	return dataVector;
-}
-
 std::vector<PlayerData> players;
 std::mutex playersMtx;
 
 void drawClients(){
 	std::lock_guard<std::mutex> lock(playersMtx);
-	for (PlayerData playerClient : players) {
+	for (const PlayerData& playerClient : players) {
 		if (playerClient.peer == peer->connectID) {
 			continue;
 		}
@@ -80,10 +71,14 @@ void updateClient(std::stop_token st) {
 		}
 	}
 
-	ENetPacket *packet = enet_packet_create(static_cast<void *>(&player), sizeof(player), ENET_PACKET_FLAG_RELIABLE);
+	std::vector<uint8_t> packetBuffer; // the packet that will be sent
+	u_int64_t blockUpdatesSize = blockUpdates.size();
+	addToPacketTemp(packetBuffer, (void *)&blockUpdatesSize, sizeof(u_int64_t));
+	addToPacketTemp(packetBuffer, (void *)&player, sizeof(player));
+	addToPacketTemp(packetBuffer, blockUpdates.data(), blockUpdates.size() * sizeof(BlockUpdatePacket));
 
+	ENetPacket *packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
 	enet_peer_send(peer, 0, packet);
-
 	std::this_thread::sleep_for(std::chrono::milliseconds(30));
 	}
 	// send a disconnect packet to the server
