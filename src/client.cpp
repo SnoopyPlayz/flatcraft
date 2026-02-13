@@ -34,6 +34,14 @@ void updateClient(std::stop_token st) {
 	while (!st.stop_requested()) {
 	ENetEvent event;
 
+	std::vector<uint8_t> packetBuffer; // the packet that will be sent
+	addVariableToPacket(packetBuffer, player);
+	addVecToPacket(packetBuffer, blockUpdates);
+
+	ENetPacket *packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
+	enet_peer_send(peer, 0, packet);
+	std::this_thread::sleep_for(std::chrono::milliseconds(30));
+
 	while (enet_host_service(client, &event, 0) > 0) {
 		switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT:
@@ -43,17 +51,14 @@ void updateClient(std::stop_token st) {
 				break;
 			case ENET_EVENT_TYPE_RECEIVE:{
 				unsigned long ptrPos = 0;
-				// get the amount of player and chunks in the packet
-				u_int64_t playersSize = unpackPacket<u_int64_t>(*(event.packet), ptrPos, 1)[0];
-				u_int64_t chunkSize = unpackPacket<u_int64_t>(*(event.packet), ptrPos, 1)[0];
 
 				{
 					std::lock_guard<std::mutex> lock(playersMtx);
 					players.clear();
-					players = unpackPacket<PlayerData>(*(event.packet), ptrPos, playersSize);
+					players = unpackVecFromPacket<PlayerData>(*(event.packet), ptrPos);
 				}
 
-				std::vector<ChunkData> chunks = unpackPacket<ChunkData>(*(event.packet), ptrPos, chunkSize);
+				std::vector<ChunkData> chunks = unpackVecFromPacket<ChunkData>(*(event.packet), ptrPos);
 
 				for (const ChunkData& chunkData : chunks) {
 					findOrCreateChunk(chunkData.pos) = std::move(chunkData.chunk);
@@ -71,15 +76,6 @@ void updateClient(std::stop_token st) {
 		}
 	}
 
-	std::vector<uint8_t> packetBuffer; // the packet that will be sent
-	u_int64_t blockUpdatesSize = blockUpdates.size();
-	addToPacketTemp(packetBuffer, (void *)&blockUpdatesSize, sizeof(u_int64_t));
-	addToPacketTemp(packetBuffer, (void *)&player, sizeof(player));
-	addToPacketTemp(packetBuffer, blockUpdates.data(), blockUpdates.size() * sizeof(BlockUpdatePacket));
-
-	ENetPacket *packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
-	enet_peer_send(peer, 0, packet);
-	std::this_thread::sleep_for(std::chrono::milliseconds(30));
 	}
 	// send a disconnect packet to the server
 	enet_peer_disconnect(peer, 0);

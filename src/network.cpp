@@ -1,11 +1,10 @@
 #include "server.hpp"
-#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
 #include <stdio.h>
 #include <enet/enet.h>
+#include <sys/types.h>
 #include <thread>
 #include "client.hpp"
 #include <raylib.h>
