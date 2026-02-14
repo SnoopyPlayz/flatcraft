@@ -33,7 +33,7 @@ project "flatcraft"
 	syslibdirs { "/usr/x86_64-w64-mingw32/lib" }
         libdirs { "lib/raylib_mingw/lib" }
         libdirs { "lib/enet_mingw/lib" }
-	buildoptions { "--target=x86_64-w64-mingw32" }
+	buildoptions { "--target=x86_64-w64-mingw32"}
         linkoptions  { "--target=x86_64-w64-mingw32", "-fuse-ld=lld", "-static"}
         links { "raylib", "enet", "ws2_32", "winmm", "pthread", "gdi32", "opengl32" }
     

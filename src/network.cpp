@@ -7,10 +7,19 @@
 #include <sys/types.h>
 #include <thread>
 #include "client.hpp"
-#include <raylib.h>
+namespace rl {
+    // We suppress warnings because Raylib (C library) might
+    // trigger some C++ warnings when inside a namespace.
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+    
+    #include "raylib.h"
+
+    #pragma GCC diagnostic pop
+}
 #include <vector>
 
-int testNetwork(){
+int initNetwork(){
 	if (enet_initialize () != 0){
 		fprintf (stderr, "An error occurred while initializing ENet.\n");
 		return EXIT_FAILURE;
@@ -23,13 +32,13 @@ std::jthread networkThread;
 void updateNetwork(){
 	drawClients();
 
-	if (IsKeyPressed(KEY_L)) {
+	if (rl::IsKeyPressed(rl::KEY_L)) {
 		if (hostServer()){
 			networkThread = std::jthread(updateServer);
 		}
 	}
 
-	if (IsKeyPressed(KEY_K)) {
+	if (rl::IsKeyPressed(rl::KEY_K)) {
 		if (createClient()) {
 			networkThread = std::jthread(updateClient);
 		}

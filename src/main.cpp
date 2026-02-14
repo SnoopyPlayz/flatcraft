@@ -7,7 +7,7 @@
 #include "raylib.h"
 
 int main(){
-	testNetwork();
+	initNetwork();
 	InitWindow(1280, 720, "flatCraft");
 	SetTargetFPS(60);
 	setAndLoadFont("Roboto-VariableFont_wdth,wght.ttf");

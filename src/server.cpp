@@ -5,13 +5,11 @@
 #include <enet/enet.h>
 #include <enet/types.h>
 #include <iostream>
-#include "debug.hpp"
 #include "player.hpp"
 #include "rayUtils.hpp"
 #include "network.hpp"
 #include "server.hpp"
 #include "map.hpp"
-#include <iterator>
 #include <stdio.h>
 #include <stop_token>
 #include <sys/types.h>
@@ -22,9 +20,7 @@
 ENetAddress address;
 ENetHost *server;
 
-void updateServer(std::stop_token st) {
-	std::unordered_map<ENetPeer *, std::optional<Player>> clients;
-	while (!st.stop_requested()) {
+void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients) {
 	std::vector<PlayerData> playerDataVec;
 	std::vector<ChunkData> chunksVec;
 	playerDataVec.reserve(clients.size());
@@ -32,9 +28,12 @@ void updateServer(std::stop_token st) {
 
 	playerDataVec.push_back({player, 1}); // adding the servers player
 	
-	// remove nullopt and convert to PlayerData vector
+	// convert map to vector and remove player = nullopt
 	for (const auto& [uniquePeers, uniquePlayer] : clients) {
-		if (!uniquePlayer) continue;
+		if (!uniquePlayer){
+			std::cout << "unique player skipped" << std::endl;
+			continue;
+		}
 		playerDataVec.push_back({*uniquePlayer, uniquePeers->connectID});
 	}
 	// convert map to vector of ChunkData
@@ -66,7 +65,7 @@ void updateServer(std::stop_token st) {
 				break;
 			case ENET_EVENT_TYPE_RECEIVE: {
 				// set player in the map
-				unsigned long ptrPos = 0;
+				uint64_t ptrPos = 0;
 				Player player = unpackPacket<Player>(*(event.packet), ptrPos, 1)[0];
 
 				std::vector<BlockUpdatePacket> blockUpdates = unpackVecFromPacket<BlockUpdatePacket>(*(event.packet), ptrPos);
@@ -90,7 +89,13 @@ void updateServer(std::stop_token st) {
 				break;
 		}
 	}
-	std::this_thread::sleep_for(std::chrono::milliseconds(30));
+}
+
+void updateServer(std::stop_token st) {
+	std::unordered_map<ENetPeer *, std::optional<Player>> clients;
+	while (!st.stop_requested()) {
+		networkTick(clients);
+		std::this_thread::sleep_for(std::chrono::milliseconds(30));
 	}
 
 	// send a disconnect packet to all clients
@@ -98,6 +103,7 @@ void updateServer(std::stop_token st) {
 		enet_peer_disconnect(peer, 0);
 	}
 	enet_host_flush(server);
+	enet_host_destroy(server);
 }
 
 bool hostServer() {

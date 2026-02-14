@@ -30,17 +30,16 @@ void drawClients(){
 	}
 }
 
-void updateClient(std::stop_token st) {
-	while (!st.stop_requested()) {
+bool netowrkTick(){
 	ENetEvent event;
 
 	std::vector<uint8_t> packetBuffer; // the packet that will be sent
 	addVariableToPacket(packetBuffer, player);
 	addVecToPacket(packetBuffer, blockUpdates);
+	blockUpdates.clear();
 
 	ENetPacket *packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
 	enet_peer_send(peer, 0, packet);
-	std::this_thread::sleep_for(std::chrono::milliseconds(30));
 
 	while (enet_host_service(client, &event, 0) > 0) {
 		switch (event.type) {
@@ -50,7 +49,7 @@ void updateClient(std::stop_token st) {
 						event.peer->address.port);
 				break;
 			case ENET_EVENT_TYPE_RECEIVE:{
-				unsigned long ptrPos = 0;
+				uint64_t ptrPos = 0;
 
 				{
 					std::lock_guard<std::mutex> lock(playersMtx);
@@ -70,16 +69,25 @@ void updateClient(std::stop_token st) {
 			case ENET_EVENT_TYPE_DISCONNECT:
 				puts("disconnected from server");
 				players.clear();
+				return false;
 				break;
 			case ENET_EVENT_TYPE_NONE:
 				break;
 		}
 	}
+	return true;
+}
 
+void updateClient(std::stop_token st) {
+	while (!st.stop_requested()){
+		netowrkTick();
+		std::this_thread::sleep_for(std::chrono::milliseconds(30));
 	}
+	
 	// send a disconnect packet to the server
 	enet_peer_disconnect(peer, 0);
 	enet_host_flush(client);
+	enet_host_destroy(client);
 }
 
 bool createClient() {

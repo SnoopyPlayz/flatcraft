@@ -3,12 +3,12 @@
 #include "enet/enet.h"
 #include <vector>
 
-int testNetwork();
+int initNetwork();
 void updateNetwork();
 
 // appends the startPtr pointer. size in number of elements not bytes
 template <typename T>
-std::vector<T> unpackPacket(const ENetPacket& packet, u_int64_t& startPtr, unsigned long size){
+std::vector<T> unpackPacket(const ENetPacket& packet, uint64_t& startPtr, unsigned long size){
 	std::vector<T> dataVector;
 	dataVector.insert(dataVector.end(), (T*)(packet.data + startPtr), (T*)(packet.data + startPtr) + size);
 	startPtr += size * sizeof(T);
@@ -16,8 +16,8 @@ std::vector<T> unpackPacket(const ENetPacket& packet, u_int64_t& startPtr, unsig
 }
 
 template <typename T>
-std::vector<T> unpackVecFromPacket(const ENetPacket& packet, u_int64_t& startPtr){
-	u_int64_t vecSize = unpackPacket<u_int64_t>(packet, startPtr, 1)[0];
+std::vector<T> unpackVecFromPacket(const ENetPacket& packet, uint64_t& startPtr){
+	uint64_t vecSize = unpackPacket<uint64_t>(packet, startPtr, 1)[0];
 	std::vector<T> result = unpackPacket<T>(packet, startPtr, vecSize);
 
 	return result;
