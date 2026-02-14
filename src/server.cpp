@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <unordered_map>
 #include <vector>
+#include <raymath.h>
 
 // server globals
 ENetAddress address;
@@ -50,7 +51,7 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 			std::cout << "skipping client with id: " << peer->connectID << " because it has no player data" << std::endl;
 		}
 		// draw players for server client
-		drawTexture3D(useTexture("player.png"), clientP->pos, WHITE);
+		drawTexture3D(useTexture("player.png"), clientP->pos * BLOCK_SIZE, WHITE);
 
 		ENetPacket* packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_UNSEQUENCED);
 		enet_peer_send(peer, 0, packet);

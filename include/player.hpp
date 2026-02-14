@@ -13,6 +13,7 @@ class Player{
 		void update();
 		Vector3 pos = {0, 0.5, 0};
 		Block selectedBlock = GRASS;
+		Vector3 velocity = {0, 0, 0};
 };
 
 struct PlayerData{

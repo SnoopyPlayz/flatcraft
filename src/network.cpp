@@ -7,17 +7,12 @@
 #include <sys/types.h>
 #include <thread>
 #include "client.hpp"
-namespace rl {
-    // We suppress warnings because Raylib (C library) might
-    // trigger some C++ warnings when inside a namespace.
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-    
-    #include "raylib.h"
-
-    #pragma GCC diagnostic pop
-}
 #include <vector>
+
+namespace rl {
+// raylib colides with enet
+#include "raylib.h"
+}
 
 int initNetwork(){
 	if (enet_initialize () != 0){

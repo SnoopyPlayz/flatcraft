@@ -2,7 +2,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <enet/enet.h>
-#include <iostream>
 #include <stdio.h>
 #include <stop_token>
 #include <sys/types.h>
@@ -12,6 +11,7 @@
 #include "network.hpp"
 #include "player.hpp"
 #include "rayUtils.hpp"
+#include "raymath.h"
 
 // client globals
 ENetHost *client;
@@ -22,20 +22,23 @@ std::mutex playersMtx;
 
 void drawClients(){
 	std::lock_guard<std::mutex> lock(playersMtx);
-	for (const PlayerData& playerClient : players) {
+	for (PlayerData& playerClient : players) {
 		if (playerClient.peer == peer->connectID) {
 			continue;
 		}
-		drawTexture3D(useTexture("player.png"), playerClient.player.pos, WHITE);
+		drawTexture3D(useTexture("player.png"), playerClient.player.pos * BLOCK_SIZE, WHITE);
+		playerClient.player.pos = playerClient.player.pos + playerClient.player.velocity;
 	}
 }
 
 bool netowrkTick(){
 	ENetEvent event;
+	//std::vector<Vec3Int> chunkRequests;
 
 	std::vector<uint8_t> packetBuffer; // the packet that will be sent
 	addVariableToPacket(packetBuffer, player);
 	addVecToPacket(packetBuffer, blockUpdates);
+	//addVecToPacket(packetBuffer, chunkRequests);
 	blockUpdates.clear();
 
 	ENetPacket *packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
@@ -79,12 +82,9 @@ bool netowrkTick(){
 }
 
 void updateClient(std::stop_token st) {
-	while (!st.stop_requested()){
-		netowrkTick();
+	while (!st.stop_requested() && netowrkTick()){
 		std::this_thread::sleep_for(std::chrono::milliseconds(30));
 	}
-	
-	// send a disconnect packet to the server
 	enet_peer_disconnect(peer, 0);
 	enet_host_flush(client);
 	enet_host_destroy(client);

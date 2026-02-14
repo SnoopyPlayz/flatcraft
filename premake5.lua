@@ -19,7 +19,6 @@ project "flatcraft"
    targetdir "bin/%{cfg.buildcfg}"
    location "build"
 
-
    externalincludedirs {"lib/raylib/include"}
    externalincludedirs {"lib/enet"}
    includedirs {"include"}
