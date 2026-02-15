@@ -1,13 +1,17 @@
 #pragma once
 #include "map.hpp"
 #include "enet/enet.h"
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <ostream>
+#include <string>
 #include <vector>
 
 int initNetwork();
+void configureNetwork(bool useInternalServer, const std::string& host, uint16_t port);
 void updateNetwork();
+void shutdownNetwork();
 
 // appends the startPtr pointer. size in number of elements not bytes
 template <typename T>
@@ -41,6 +45,7 @@ void addVariableToPacket(std::vector<uint8_t>& packetBuffer, const T &data) {
 	addToPacketTemp(packetBuffer, (void *)&data, sizeof(T));
 }
 
+#pragma pack(push, 1)
 struct BlockUpdatePacket{
 	Vec3Int pos;
 	Block block;
@@ -50,3 +55,4 @@ struct ChunkData{
 	Chunk chunk;
 	Vec3Int pos;
 };
+#pragma pack(pop)

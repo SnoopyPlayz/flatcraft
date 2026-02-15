@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -18,29 +17,43 @@
 #include <unordered_map>
 #include <vector>
 #include <raymath.h>
+#include <lz4.h>
 
 // server globals
 ENetAddress address;
 ENetHost *server;
 
-void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, ENetPeer* peer, std::unordered_map<ENetPeer *, std::vector<Vec3Int>>& chunkRequests, std::vector<BlockUpdatePacket> blockUpdatesVec, const std::optional<Player>& player) {
-	std::cout << "using receved packet form peer" << peer << std::endl;
-	std::cout << "adding chunks for peer with id: " << chunkRequests[peer].size() << std::endl;
+template<typename T>
+void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, std::vector<T>& dataVec) {
+	const uint64_t uncompressedSize = dataVec.size();
+	addVariableToPacket(packetBuffer, uncompressedSize);
+
+	int srcSize = static_cast<int>(dataVec.size() * sizeof(T));
+	int maxDstSize = LZ4_compressBound(srcSize);
+	std::vector<uint8_t> compressedData;
+	compressedData.resize(maxDstSize);
+
+	int compressedSize = LZ4_compress_default(
+			(const char *)dataVec.data(),             // Source pointer
+			(char *)compressedData.data(),      // Destination pointer
+			srcSize,             // Source size
+			maxDstSize// Max destination capacity
+	);
+	assert(compressedSize > 0 || srcSize == 0);
+	compressedData.resize(compressedSize);
+
+	addVecToPacket(packetBuffer, compressedData);
+}
+
+
+void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, ENetPeer* peer, std::unordered_map<ENetPeer *, std::vector<Vec3Int>>& chunkRequests, std::vector<BlockUpdatePacket> blockUpdatesVec) {
 	std::vector<ChunkData> chunksVec;
 	for (Vec3Int &chunkPos: chunkRequests[peer]) {
-		if (validChunk(chunkPos)) {
-			chunksVec.push_back({findChunk(chunkPos), chunkPos});
-			std::cout << "added chunk: " << chunkPos.x << " " << chunkPos.y << " " << chunkPos.z << std::endl;
-		}
+		chunksVec.push_back({findOrCreateChunk(chunkPos), chunkPos});
+		//std::cout << "added chunk: " << chunkPos.x << " " << chunkPos.y << " " << chunkPos.z << std::endl;
 	}
-	addVecToPacket(packetBuffer, chunksVec);
-	for (const BlockUpdatePacket& blockUpdate : blockUpdatesVec) {
-		Vec3Int chunkBlockUpdatePos = blockUpdate.pos / CHUNK_SIZE;
-		if (Vec3Int{1,1,1} < (toVec3Int(player->pos) / CHUNK_SIZE) - chunkBlockUpdatePos){
-			std::cout << "skipping block update at pos: " << blockUpdate.pos.x << " " << blockUpdate.pos.y << " " << blockUpdate.pos.z << std::endl;
-		}
-	}
-
+	//addVecToPacket(packetBuffer, chunksVec);
+	addCompressedVecToPacket(packetBuffer, chunksVec);
 	addVecToPacket(packetBuffer, blockUpdatesVec);
 	chunkRequests[peer].clear();
 }
@@ -53,8 +66,6 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 	playerDataVec.reserve(clients.size());
 	chunksVec.reserve(map.size());
 
-	playerDataVec.push_back({player, 1}); // adding the servers player
-	
 	// convert map to vector and remove player = nullopt
 	for (const auto& [uniquePeers, uniquePlayer] : clients) {
 		if (!uniquePlayer){
@@ -78,12 +89,9 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 			std::cout << "skipping client with id: " << peer->connectID << " because it has no player data" << std::endl;
 		}
 
-		addToPacketForEachPeer(packetBuffer, peer, chunkRequests, blockUpdatesVec, clientP);
+		addToPacketForEachPeer(packetBuffer, peer, chunkRequests, blockUpdatesVec);
 
-		// draw players for server client
-		drawTexture3D(useTexture("player.png"), clientP->pos * BLOCK_SIZE, WHITE);
-
-		ENetPacket* packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_UNSEQUENCED);
+		ENetPacket* packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
 		enet_peer_send(peer, 0, packet);
 	}
 	blockUpdatesVec.clear();
@@ -141,9 +149,9 @@ void updateServer(std::stop_token st) {
 	enet_host_destroy(server);
 }
 
-bool hostServer() {
+bool hostServer(uint16_t port) {
 	address.host = ENET_HOST_ANY;
-	address.port = 1236;
+	address.port = port;
 
 	server = enet_host_create(&address, 32/*maxClients*/, 2/*maxChannels*/, 0/*incomingBandwidth*/, 0/*outgoingBandwidth*/);
 
@@ -152,10 +160,6 @@ bool hostServer() {
 		return false;
 	}
 
-	if (enet_host_compress_with_range_coder(server) < 0){
-		fprintf(stderr, "Cant set compression \n");
-		return false;
-	}
 	printf("server created successfully\n");
 	return true;
 }

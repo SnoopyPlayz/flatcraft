@@ -20,6 +20,7 @@ project "flatcraft"
    location "build"
 
    externalincludedirs {"lib/raylib/include"}
+   externalincludedirs {"lib/lz4/include"}
    externalincludedirs {"lib/enet"}
    includedirs {"include"}
 
@@ -39,7 +40,8 @@ project "flatcraft"
     filter "platforms:Linux64"
         libdirs { "lib/raylib/lib" }
         libdirs { "lib/enet/lib" }
-        links { "raylib", "enet", "pthread", "dl", "m" }
+        libdirs { "lib/lz4/lib" }
+        links { "raylib", "enet", "lz4", "pthread", "dl", "m" }
 
     filter "configurations:Debug"
       defines { "DEBUG" }

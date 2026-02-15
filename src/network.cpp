@@ -7,12 +7,9 @@
 #include <sys/types.h>
 #include <thread>
 #include "client.hpp"
+#include "network.hpp"
+#include <string>
 #include <vector>
-
-namespace rl {
-// raylib colides with enet
-#include "raylib.h"
-}
 
 int initNetwork(){
 	if (enet_initialize () != 0){
@@ -23,21 +20,53 @@ int initNetwork(){
 	return 0;
 }
 
-std::jthread networkThread;
+std::jthread serverThread;
+std::jthread clientThread;
+bool networkingStarted = false;
+bool useInternalServer = true;
+std::string connectHost = "localhost";
+uint16_t connectPort = 1236;
+
+void configureNetwork(bool shouldUseInternalServer, const std::string& host, uint16_t port) {
+	useInternalServer = shouldUseInternalServer;
+	connectHost = host;
+	connectPort = port;
+}
+
+static void startSinglePlayerNetworking() {
+	if (networkingStarted) return;
+	if (useInternalServer && !hostServer(connectPort)) return;
+
+	if (useInternalServer) {
+		serverThread = std::jthread(updateServer);
+	}
+	if (!createClient(connectHost.c_str(), connectPort)) {
+		if (useInternalServer) {
+			serverThread.request_stop();
+			if (serverThread.joinable()) serverThread.join();
+		}
+		return;
+	}
+
+	clientThread = std::jthread(updateClient);
+	networkingStarted = true;
+}
+
 void updateNetwork(){
-	drawClients();
+	startSinglePlayerNetworking();
+	if (networkingStarted) drawClients();
+}
 
-	if (rl::IsKeyPressed(rl::KEY_L)) {
-		if (hostServer()){
-			networkThread = std::jthread(updateServer);
-		}
+void shutdownNetwork() {
+	if (clientThread.joinable()) {
+		clientThread.request_stop();
+		clientThread.join();
 	}
-
-	if (rl::IsKeyPressed(rl::KEY_K)) {
-		if (createClient()) {
-			networkThread = std::jthread(updateClient);
-		}
+	if (serverThread.joinable()) {
+		serverThread.request_stop();
+		serverThread.join();
 	}
+	networkingStarted = false;
 }
 
 void addToPacketTemp(std::vector<uint8_t>& packetBuffer, void *data, size_t size) {

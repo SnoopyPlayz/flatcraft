@@ -1,5 +1,6 @@
 #pragma once
+#include <cstdint>
 #include <stop_token>
 
-bool hostServer();
+bool hostServer(uint16_t port);
 void updateServer(std::stop_token st);
