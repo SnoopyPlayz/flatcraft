@@ -2,8 +2,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <enet/enet.h>
-#include <enet/types.h>
 #include <iostream>
 #include "player.hpp"
 #include "rayUtils.hpp"

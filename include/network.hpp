@@ -1,6 +1,16 @@
 #pragma once
 #include "map.hpp"
+#ifdef _WIN32
+#define Rectangle ENetRectangle
+#define CloseWindow ENetCloseWindow
+#define ShowCursor ENetShowCursor
+#endif
 #include "enet/enet.h"
+#ifdef _WIN32
+#undef Rectangle
+#undef CloseWindow
+#undef ShowCursor
+#endif
 #include <cstdint>
 #include <cstdio>
 #include <cstring>

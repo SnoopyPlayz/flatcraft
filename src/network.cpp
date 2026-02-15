@@ -3,7 +3,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <stdio.h>
-#include <enet/enet.h>
 #include <sys/types.h>
 #include <thread>
 #include "client.hpp"

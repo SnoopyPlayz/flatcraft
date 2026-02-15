@@ -2,7 +2,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <cassert>
-#include <enet/enet.h>
 #include <iostream>
 #include <lz4.h>
 #include <stdio.h>
