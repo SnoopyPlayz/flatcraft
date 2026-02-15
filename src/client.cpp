@@ -2,16 +2,19 @@
 #include <cstdlib>
 #include <cstring>
 #include <enet/enet.h>
+#include <iostream>
 #include <stdio.h>
 #include <stop_token>
 #include <sys/types.h>
 #include <utility>
 #include <vector>
+#include "debug.hpp"
 #include "map.hpp"
 #include "network.hpp"
 #include "player.hpp"
 #include "rayUtils.hpp"
 #include "raymath.h"
+#include "vector.hpp"
 
 // client globals
 ENetHost *client;
@@ -33,12 +36,28 @@ void drawClients(){
 
 bool netowrkTick(){
 	ENetEvent event;
-	//std::vector<Vec3Int> chunkRequests;
+	std::vector<Vec3Int> chunkRequests;
+
+	const int radius = 2;
+	for (int x = -radius; x <= radius; x++) {
+		for (int y = -radius; y <= radius; y++) {
+			for (int z = -radius; z <= radius; z++) {
+				Vec3Int chunkpos = (toVec3Int(player.pos) / CHUNK_SIZE) + Vec3Int{x, y, z};
+
+				if (!validChunk(chunkpos)) {
+					chunkRequests.push_back(chunkpos);
+				}
+			}
+		}
+	}
+	chunkRequests.push_back({0,0,0});
+
+	//debug.addMessage("chunk request: " + std::to_string(chunkRequests[0].x) + " " + std::to_string(chunkRequests[0].y) + " " + std::to_string(chunkRequests[0].z));
 
 	std::vector<uint8_t> packetBuffer; // the packet that will be sent
 	addVariableToPacket(packetBuffer, player);
 	addVecToPacket(packetBuffer, blockUpdates);
-	//addVecToPacket(packetBuffer, chunkRequests);
+	addVecToPacket(packetBuffer, chunkRequests);
 	blockUpdates.clear();
 
 	ENetPacket *packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
@@ -64,6 +83,11 @@ bool netowrkTick(){
 
 				for (const ChunkData& chunkData : chunks) {
 					findOrCreateChunk(chunkData.pos) = std::move(chunkData.chunk);
+				}
+
+				std::vector<BlockUpdatePacket> blockUpdate = unpackVecFromPacket<BlockUpdatePacket>(*(event.packet), ptrPos);
+				for (const BlockUpdatePacket& blockUpdatePacket : blockUpdate) {
+					setBlock(blockUpdatePacket.pos, blockUpdatePacket.block);
 				}
 
 				enet_packet_destroy(event.packet);

@@ -21,6 +21,7 @@ void Player::update(){
 	}
 
 	const float playerSpeed = 0.12;
+	const float playerRunningMul = 1.5;
 	// Draw player
 	drawTexture3D(useTexture("player.png"), pos * BLOCK_SIZE, WHITE);
 
@@ -31,6 +32,9 @@ void Player::update(){
 	vel.z = IsKeyDown(KEY_S) - IsKeyDown(KEY_W);
 
 	velocity = Vector3Normalize(vel) * playerSpeed;
+	if (IsKeyDown(KEY_LEFT_SHIFT))
+		velocity = velocity * playerRunningMul;
+
 	pos += velocity;
 
 	Vector2 mouseScreen = GetMousePosition();

@@ -1,6 +1,9 @@
 #pragma once
 #include "map.hpp"
 #include "enet/enet.h"
+#include <cstdio>
+#include <cstring>
+#include <ostream>
 #include <vector>
 
 int initNetwork();
@@ -10,6 +13,7 @@ void updateNetwork();
 template <typename T>
 std::vector<T> unpackPacket(const ENetPacket& packet, uint64_t& startPtr, unsigned long size){
 	std::vector<T> dataVector;
+	//std::memcpy(dataVector.data(), packet.data + startPtr, (sizeof(T) * (size_t)((packet.data + startPtr) + size)));
 	dataVector.insert(dataVector.end(), (T*)(packet.data + startPtr), (T*)(packet.data + startPtr) + size);
 	startPtr += size * sizeof(T);
 	return dataVector;
@@ -18,8 +22,8 @@ std::vector<T> unpackPacket(const ENetPacket& packet, uint64_t& startPtr, unsign
 template <typename T>
 std::vector<T> unpackVecFromPacket(const ENetPacket& packet, uint64_t& startPtr){
 	uint64_t vecSize = unpackPacket<uint64_t>(packet, startPtr, 1)[0];
+	if(vecSize == 0) return std::vector<T>();
 	std::vector<T> result = unpackPacket<T>(packet, startPtr, vecSize);
-
 	return result;
 }
 

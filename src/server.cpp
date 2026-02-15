@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -10,6 +11,7 @@
 #include "network.hpp"
 #include "server.hpp"
 #include "map.hpp"
+#include "vector.hpp"
 #include <stdio.h>
 #include <stop_token>
 #include <sys/types.h>
@@ -21,7 +23,31 @@
 ENetAddress address;
 ENetHost *server;
 
+void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, ENetPeer* peer, std::unordered_map<ENetPeer *, std::vector<Vec3Int>>& chunkRequests, std::vector<BlockUpdatePacket> blockUpdatesVec, const std::optional<Player>& player) {
+	std::cout << "using receved packet form peer" << peer << std::endl;
+	std::cout << "adding chunks for peer with id: " << chunkRequests[peer].size() << std::endl;
+	std::vector<ChunkData> chunksVec;
+	for (Vec3Int &chunkPos: chunkRequests[peer]) {
+		if (validChunk(chunkPos)) {
+			chunksVec.push_back({findChunk(chunkPos), chunkPos});
+			std::cout << "added chunk: " << chunkPos.x << " " << chunkPos.y << " " << chunkPos.z << std::endl;
+		}
+	}
+	addVecToPacket(packetBuffer, chunksVec);
+	for (const BlockUpdatePacket& blockUpdate : blockUpdatesVec) {
+		Vec3Int chunkBlockUpdatePos = blockUpdate.pos / CHUNK_SIZE;
+		if (Vec3Int{1,1,1} < (toVec3Int(player->pos) / CHUNK_SIZE) - chunkBlockUpdatePos){
+			std::cout << "skipping block update at pos: " << blockUpdate.pos.x << " " << blockUpdate.pos.y << " " << blockUpdate.pos.z << std::endl;
+		}
+	}
+
+	addVecToPacket(packetBuffer, blockUpdatesVec);
+	chunkRequests[peer].clear();
+}
+
 void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients) {
+	static std::unordered_map<ENetPeer *, std::vector<Vec3Int>> chunkRequests;
+	static std::vector<BlockUpdatePacket> blockUpdatesVec;
 	std::vector<PlayerData> playerDataVec;
 	std::vector<ChunkData> chunksVec;
 	playerDataVec.reserve(clients.size());
@@ -41,21 +67,26 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 	for (const auto& [pos, chunk] : map){
 		chunksVec.push_back({chunk, pos});
 	}
+
 	std::vector<uint8_t> packetBuffer; // the packet that will be sent
 
 	addVecToPacket(packetBuffer, playerDataVec);
-	addVecToPacket(packetBuffer, chunksVec);
+	//addVecToPacket(packetBuffer, chunksVec);
 
 	for (const auto& [peer, clientP] : clients) {
 		if (!clientP) {// this may not be needed TODO FIXME
 			std::cout << "skipping client with id: " << peer->connectID << " because it has no player data" << std::endl;
 		}
+
+		addToPacketForEachPeer(packetBuffer, peer, chunkRequests, blockUpdatesVec, clientP);
+
 		// draw players for server client
 		drawTexture3D(useTexture("player.png"), clientP->pos * BLOCK_SIZE, WHITE);
 
 		ENetPacket* packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_UNSEQUENCED);
 		enet_peer_send(peer, 0, packet);
 	}
+	blockUpdatesVec.clear();
 
 	ENetEvent event;
 	while (enet_host_service(server, &event, 0) > 0) {
@@ -77,7 +108,10 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 
 				for (const BlockUpdatePacket& blockUpdate : blockUpdates) {
 					setBlock(blockUpdate.pos, blockUpdate.block);
+					blockUpdatesVec.push_back(blockUpdate);
 				}
+
+				chunkRequests[event.peer] = unpackVecFromPacket<Vec3Int>(*(event.packet), ptrPos);
 
 				enet_packet_destroy(event.packet);
 				break;
