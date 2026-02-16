@@ -1,6 +1,9 @@
 # flatcraft
 top down minecraft made in c++ with [raylib](https://github.com/raysan5/raylib). <br>
 
+## Joining game
+flatcraft --join localhost 1236
+
 ## example Image:
 
 ## building
