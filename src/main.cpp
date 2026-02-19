@@ -63,6 +63,7 @@ int main(int argc, char *argv[]) {
 	}
 	shutdownNetwork();
 	enet_deinitialize();
+	unloadShaders();
 	CloseWindow();
 	return 0;
 }

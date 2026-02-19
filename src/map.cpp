@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <cstdio>
 #include <raylib.h>
 #include "debug.hpp"
@@ -8,6 +10,7 @@
 #include <map>
 #include "map.hpp"
 #include "rayUtils.hpp"
+#include "player.hpp"
 
 
 std::map<Vec3Int, Chunk> map;
@@ -94,11 +97,28 @@ void drawMap(){
 					const Vec3Int worldPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos) * BLOCK_SIZE;
 
 					if (pair.second.blocks[x][y][z] == GRASS) {
-						drawTexture3D(useTexture("grass.png"), worldPos.toVec3(), ColorContrast(WHITE, y * -0.1));
+						const int minBrigtnessDistance = 20;
+
+						Vector3 white = worldPos.toVec3();
+						white.y -= 0.001;
+						drawRect3D(white, WHITE);
+
+						float brightness = (worldPos.y - player.pos.y); 
+						brightness /= minBrigtnessDistance; //(minBrigtnessDistance * 0.01);
+
+						float colorAlpha = 1;
+						if (brightness > 0)
+							colorAlpha = 1 - brightness;
+						if (colorAlpha < 0.5f)
+							colorAlpha = 0.5f;
+						
+						Color c = ColorAlpha(ColorBrightness(WHITE, brightness), colorAlpha);
+
+						drawTexture3D(useTexture("grass.png"), worldPos.toVec3(), c);
 					}
 
 					if (pair.second.blocks[x][y][z] == STONE) {
-						drawTexture3D(useTexture("stone.png"), worldPos.toVec3(), ColorContrast(WHITE, y * -0.1));
+						drawTexture3D(useTexture("stone.png"), worldPos.toVec3(), ColorContrast(WHITE, (player.pos.y - worldPos.y) * 0.1));
 					}
 				}
 			}

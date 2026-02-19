@@ -1,18 +1,17 @@
 #include <algorithm>
+#include <optional>
 #include <raylib.h>
 #include <map>
 #include <string>
 #include <stdio.h>
 #include <vector>
 #include "rayUtils.hpp"
-#include "debug.hpp"
-#include <concepts>
-#include <iostream>
+#include <map.hpp>
 
 std::string absolutePath = "res/"; // absolutePath + fullPath + givenPath
 std::map<std::string, Texture2D> textureMap;
+std::map<std::string, Shader> shaderMap;
 Font fontSDF;
-Shader currentShader;
 
 Texture2D useTexture(const std::string& Path){
 	std::string fullPath = absolutePath + Path;
@@ -23,6 +22,24 @@ Texture2D useTexture(const std::string& Path){
 		Texture2D tex = LoadTexture(fullPath.c_str());
 		textureMap.insert({fullPath, tex});
 		return tex;
+	}
+}
+
+void unloadShaders(){
+	for (const auto& pair : shaderMap) {
+		UnloadShader(pair.second);
+	}
+}
+
+Shader useShader(const std::string& Path){
+	std::string fullPath = absolutePath + Path;
+
+	if (auto search = shaderMap.find(fullPath); search != shaderMap.end()){
+		return search->second;
+	}else {
+		Shader shader = LoadShader(0, fullPath.c_str());
+		shaderMap.insert({fullPath, shader});
+		return shader;
 	}
 }
 
@@ -60,20 +77,18 @@ void setAndLoadFont(const std::string& Path){
 	UnloadImage(atlas);
 	UnloadFileData(fileData);
 
-	currentShader = LoadShader(0, (absolutePath + "shaders/sdf.fs").c_str());
 	SetTextureFilter(fontSDF.texture, TEXTURE_FILTER_BILINEAR);
-
 }
 
 void drawTextSDF(const std::string& text, float posX, float posY, int fontSize, Color color){
-	BeginShaderMode(currentShader);
+	BeginShaderMode(useShader("shaders/sdf.fs"));
 	DrawTextEx(fontSDF, text.c_str(), {posX, posY}, fontSize, 0, color);
 	EndShaderMode();
 }
 
 struct Texture2DInstance {
 	Vector3 position;
-	Texture2D texture;
+	std::optional<Texture2D> texture;
 	Color tint;
 };
 
@@ -83,13 +98,21 @@ void drawTexture3D(Texture2D texture, Vector3 pos, Color tint){
 	vertices.push_back({{pos.x, pos.y, pos.z}, texture, tint});
 }
 
+void drawRect3D(Vector3 pos, Color tint){
+	vertices.push_back({{pos.x, pos.y, pos.z}, std::nullopt, tint});
+}
+
 void drawAllTextures3D(){
 	std::sort(vertices.begin(), vertices.end(), [](const auto& a, const auto& b) {
 		return (a.position.y < b.position.y);
 	});
 
 	for (const Texture2DInstance& tex: vertices) {
-		DrawTextureV(tex.texture, {tex.position.x, tex.position.z}, tex.tint);
+		if (tex.texture.has_value()) {
+			DrawTextureV(tex.texture.value(), {tex.position.x, tex.position.z}, tex.tint);
+		}else{
+			DrawRectangle(tex.position.x, tex.position.z, BLOCK_SIZE, BLOCK_SIZE, tex.tint);
+		}
 	}
 	vertices.clear();
 }

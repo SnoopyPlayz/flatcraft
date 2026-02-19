@@ -57,7 +57,7 @@ bool netowrkTick(){
 	ENetEvent event;
 	std::vector<Vec3Int> chunkRequests;
 
-	const int radius = 2;
+	const int radius = 1;
 	for (int x = -radius; x <= radius; x++) {
 		for (int y = -radius; y <= radius; y++) {
 			for (int z = -radius; z <= radius; z++) {

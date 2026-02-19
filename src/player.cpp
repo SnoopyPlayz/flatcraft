@@ -32,6 +32,7 @@ void Player::update(){
 	vel.z = IsKeyDown(KEY_S) - IsKeyDown(KEY_W);
 
 	velocity = Vector3Normalize(vel) * playerSpeed;
+
 	if (IsKeyDown(KEY_LEFT_SHIFT))
 		velocity = velocity * playerRunningMul;
 
