@@ -11,7 +11,7 @@
 #include "map.hpp"
 #include "rayUtils.hpp"
 #include "player.hpp"
-
+#include <raymath.h>
 
 std::map<Vec3Int, Chunk> map;
 
@@ -76,6 +76,50 @@ void setBlock(Vec3Int pos, int block){
 	c.changed = true;
 }
 
+Texture2D shadowTexture;
+void createShadowTexture(){
+	Image shadowImage = GenImageGradientLinear(64, 64, 0, ColorAlpha(DARKGRAY, 0.5f), ColorAlpha(WHITE, 0.0f));
+	shadowTexture = LoadTextureFromImage(shadowImage);
+	UnloadImage(shadowImage);
+}
+
+void createShadowsForMap(){
+	drawTexture3D(shadowTexture, {0, 1, 1}, WHITE);
+
+	for (const auto& pair : map) {
+		for (int x{}; x < CHUNK_SIZE; x++) {
+			for (int y{}; y < CHUNK_SIZE; y++) {
+				for (int z{}; z < CHUNK_SIZE; z++) {
+					if (pair.second.blocks[x][y][z] == AIR) {
+						continue;
+					}
+					
+					const Vec3Int chunkWorldPos = pair.first;
+					const Vec3Int blockChunkPos = Vec3Int{x, y, z};
+					const Vec3Int blockPos = (chunkWorldPos * CHUNK_SIZE) + blockChunkPos;
+					const Vec3Int worldPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos) * BLOCK_SIZE;
+
+					Vector3 pos = worldPos.toVec3();
+					pos.y = worldPos.y + 0.01f; // epsilon
+
+					if (getBlock(blockPos + Vec3Int{0, 1, -1}) != AIR) {
+						drawTexture3DRot(shadowTexture, pos, WHITE, 0);
+					}
+					if (getBlock(blockPos + Vec3Int{0, 1, 1}) != AIR) {
+						drawTexture3DRot(shadowTexture, pos, WHITE, 180);
+					}
+					if (getBlock(blockPos + Vec3Int{1, 1, 0}) != AIR) {
+						drawTexture3DRot(shadowTexture, pos, WHITE, 90);
+					}
+					if (getBlock(blockPos + Vec3Int{-1, 1, 0}) != AIR) {
+						drawTexture3DRot(shadowTexture, pos, WHITE, 270);
+					}
+				}
+			}
+		}
+	}
+}
+
 void drawMap(){
 	for (const auto& pair : map) {
 		for (int x{}; x < CHUNK_SIZE; x++) {
@@ -97,20 +141,22 @@ void drawMap(){
 					const Vec3Int worldPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos) * BLOCK_SIZE;
 
 					if (pair.second.blocks[x][y][z] == GRASS) {
+						const float blockHeight = chunkWorldPos.y * CHUNK_SIZE + blockChunkPos.y;
 						const int minBrigtnessDistance = 20;
+						const float maxWhite = 0.5f; // lower is more white
 
-						Vector3 white = worldPos.toVec3();
-						white.y -= 0.001;
-						drawRect3D(white, WHITE);
+						Vector3 whiteBackgroundPos = worldPos.toVec3();
+						whiteBackgroundPos.y -= 0.001;
+						drawRect3D(whiteBackgroundPos, WHITE);
 
-						float brightness = (worldPos.y - player.pos.y); 
+						float brightness = (blockHeight - player.pos.y); 
 						brightness /= minBrigtnessDistance; //(minBrigtnessDistance * 0.01);
 
 						float colorAlpha = 1;
 						if (brightness > 0)
 							colorAlpha = 1 - brightness;
-						if (colorAlpha < 0.5f)
-							colorAlpha = 0.5f;
+						if (colorAlpha < maxWhite)
+							colorAlpha = maxWhite;
 						
 						Color c = ColorAlpha(ColorBrightness(WHITE, brightness), colorAlpha);
 

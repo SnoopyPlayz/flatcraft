@@ -21,6 +21,8 @@ typedef enum Block{
 
 extern std::map<Vec3Int, Chunk> map;
 
+void createShadowTexture();
+void createShadowsForMap();
 
 void drawMap();
 

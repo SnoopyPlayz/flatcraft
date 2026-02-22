@@ -10,6 +10,7 @@ void drawTexture3D(Texture2D texture, Vector3 vec, Color tint);
 void drawRect3D(Vector3 pos, Color tint);
 void unloadShaders();
 Shader useShader(const std::string& Path);
+void drawTexture3DRot(Texture2D texture, Vector3 pos, Color tint, float rotation);
 
 void drawAllTextures3D();
 

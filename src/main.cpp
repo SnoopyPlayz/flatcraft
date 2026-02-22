@@ -42,6 +42,7 @@ int main(int argc, char *argv[]) {
 	if (hasWindowPos) SetWindowPosition(1920 + windowPosX, windowPosY);
 	SetTargetFPS(60);
 	setAndLoadFont("Roboto-VariableFont_wdth,wght.ttf");
+	createShadowTexture();
 
 	while (!WindowShouldClose()) {
 		BeginDrawing();
@@ -51,6 +52,7 @@ int main(int argc, char *argv[]) {
 		drawMap();
 		player.update();
 		playerCamera.update();
+		createShadowsForMap();
 
 		updateNetwork();
 

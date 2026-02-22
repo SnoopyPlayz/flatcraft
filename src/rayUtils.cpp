@@ -90,16 +90,31 @@ struct Texture2DInstance {
 	Vector3 position;
 	std::optional<Texture2D> texture;
 	Color tint;
+	float rotation;
 };
 
 std::vector<Texture2DInstance> vertices;
 
+void DrawTextureWithRot(Texture tex, float x, float y, float rot, Color col){
+	float texX = tex.width;
+	float texY = tex.height;
+
+	struct Rectangle posAndSize= (Rectangle){x + texX / 2, y + texY / 2, texX, texY};
+	struct Rectangle texSize = (Rectangle){0, 0, texX, texY};
+
+	DrawTexturePro(tex, texSize, posAndSize, (Vector2){(float)texX / 2, (float)texY / 2}, rot, col);
+}
+
+void drawTexture3DRot(Texture2D texture, Vector3 pos, Color tint, float rotation){
+	vertices.push_back({{pos.x, pos.y, pos.z}, texture, tint, rotation});
+}
+
 void drawTexture3D(Texture2D texture, Vector3 pos, Color tint){
-	vertices.push_back({{pos.x, pos.y, pos.z}, texture, tint});
+	drawTexture3DRot(texture, pos, tint, 0);
 }
 
 void drawRect3D(Vector3 pos, Color tint){
-	vertices.push_back({{pos.x, pos.y, pos.z}, std::nullopt, tint});
+	vertices.push_back({{pos.x, pos.y, pos.z}, std::nullopt, tint, 0});
 }
 
 void drawAllTextures3D(){
@@ -109,7 +124,8 @@ void drawAllTextures3D(){
 
 	for (const Texture2DInstance& tex: vertices) {
 		if (tex.texture.has_value()) {
-			DrawTextureV(tex.texture.value(), {tex.position.x, tex.position.z}, tex.tint);
+			DrawTextureWithRot(tex.texture.value(), tex.position.x, tex.position.z, tex.rotation, tex.tint);
+			//DrawTextureEx(tex.texture.value(), {tex.position.x, tex.position.z}, tex.rotation, 1, tex.tint);
 		}else{
 			DrawRectangle(tex.position.x, tex.position.z, BLOCK_SIZE, BLOCK_SIZE, tex.tint);
 		}
