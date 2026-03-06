@@ -1,6 +1,6 @@
 workspace "flatcraft"
    configurations { "Debug", "Release" }
-   platforms { "Linux64", "Windows64" }
+   platforms { "Windows64", "Linux64" }
     
     filter "platforms:Windows64"
         architecture "x86_64"
@@ -22,6 +22,7 @@ project "flatcraft"
    externalincludedirs {"lib/raylib/include"}
    externalincludedirs {"lib/lz4/include"}
    externalincludedirs {"lib/enet"}
+   externalincludedirs {"lib"}
    includedirs {"include"}
 
    files { "include/**.hpp", "src/**.cpp", }
@@ -34,7 +35,7 @@ project "flatcraft"
         libdirs { "lib/raylib_mingw/lib" }
         libdirs { "lib/enet_mingw/lib" }
         libdirs { "lib/lz4_mingw/lib" }
-	buildoptions { "--target=x86_64-w64-mingw32"}
+	buildoptions { "--target=x86_64-w64-mingw32", "-std=c++20"}
         linkoptions  { "--target=x86_64-w64-mingw32", "-fuse-ld=lld", "-static"}
         links { "raylib", "enet", "lz4", "ws2_32", "winmm", "pthread", "gdi32", "opengl32" }
     

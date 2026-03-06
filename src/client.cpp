@@ -125,7 +125,8 @@ bool netowrkTick(){
 
 void updateClient(std::stop_token st) {
 	while (!st.stop_requested() && netowrkTick()){
-		std::this_thread::sleep_for(std::chrono::milliseconds(30));
+		//std::this_thread::sleep_for(std::chrono::milliseconds(30));
+		WaitTime(0.03);
 	}
 	enet_peer_disconnect(peer, 0);
 	enet_host_flush(client);

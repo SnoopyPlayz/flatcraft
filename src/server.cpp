@@ -136,7 +136,8 @@ void updateServer(std::stop_token st) {
 	std::unordered_map<ENetPeer *, std::optional<Player>> clients;
 	while (!st.stop_requested()) {
 		networkTick(clients);
-		std::this_thread::sleep_for(std::chrono::milliseconds(30));
+		//std::this_thread::sleep_for(std::chrono::milliseconds(30));
+		WaitTime(0.03);
 	}
 
 	// send a disconnect packet to all clients
