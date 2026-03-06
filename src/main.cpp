@@ -4,6 +4,7 @@
 #include "network.hpp"
 #include "debug.hpp"
 #include "rayUtils.hpp"
+#include "worldGen.hpp"
 #include <cstdint>
 #include <string>
 
@@ -43,6 +44,10 @@ int main(int argc, char *argv[]) {
 	SetTargetFPS(60);
 	setAndLoadFont("Roboto-VariableFont_wdth,wght.ttf");
 	createShadowTexture();
+
+	worldGenInit();
+	genChunk({0,1,0});
+	genChunk({0,0,0});
 
 	while (!WindowShouldClose()) {
 		BeginDrawing();

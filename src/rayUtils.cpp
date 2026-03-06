@@ -25,6 +25,13 @@ Texture2D useTexture(const std::string& Path){
 	}
 }
 
+std::string stringToLower(std::string s){
+	for (auto & c: s){
+		c = std::tolower((unsigned char)c);
+	}
+	return s;
+}
+
 void unloadShaders(){
 	for (const auto& pair : shaderMap) {
 		UnloadShader(pair.second);

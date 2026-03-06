@@ -10,6 +10,7 @@ const int MAX_BLOCK_SEARCH_HEIGHT = 100;
 
 struct Chunk {
 	bool changed = false; // has chunk changed this frame
+	bool generated = false;
 	uint8_t blocks[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE];
 };
 

@@ -16,6 +16,7 @@ struct Vec3Int {
     Vec3Int operator*(const Vec3Int& other) const;
     Vec3Int operator-(const Vec3Int& other) const;
     Vec3Int operator+(const Vec3Int& other) const;
+    bool operator==(const Vec3Int& other) const;
     Vec3Int mod(int a) const;
     Vector3 toVec3() const;
 };

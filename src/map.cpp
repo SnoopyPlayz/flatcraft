@@ -11,6 +11,7 @@
 #include "map.hpp"
 #include "rayUtils.hpp"
 #include "player.hpp"
+#include "vector.hpp"
 #include <raymath.h> 
 #include <iostream>
 #include <magic_enum.hpp>
@@ -120,8 +121,31 @@ void createShadowsForMap(){
 	}
 }
 
+bool culling(Vec3Int pos){
+	const int radius = 1;
+	Vec3Int position = toVec3Int(player.pos) / CHUNK_SIZE;
+
+	for (int x = position.x - radius; x <= radius; x++) {
+		for (int y = position.y - radius; y <= radius; y++) {
+			for (int z = position.z - radius; z <= radius; z++) {
+
+				if(position == (Vec3Int){x + pos.x,y + pos.y,z + pos.z}){
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 void drawMap(){
+	int count = 0;
 	for (const auto& pair : map) {
+		if(!culling(pair.first)){
+			continue;
+		}
+		count++;
+
 		for (int x{}; x < CHUNK_SIZE; x++) {
 			for (int y{}; y < CHUNK_SIZE; y++) {
 				for (int z{}; z < CHUNK_SIZE; z++) {
@@ -129,6 +153,8 @@ void drawMap(){
 					if (currentBlock == AIR) {
 						continue;
 					}
+					const int minBrigtnessDistance = 20;
+					const float maxWhite = 0.5f; // lower is more white
 
 					// assuming that there is a block at 34 0 0
 					// 1 0 0 chunk position
@@ -140,15 +166,14 @@ void drawMap(){
 					// 	     1 0 0 * 32 	   + 2 0 0   	     * 64 = 2176 0 0
 					// 1 0 0 * 32 + 2 0 0 * 64 = 2176 0 0
 					const Vec3Int worldPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos) * BLOCK_SIZE;
-
 					const float blockHeight = chunkWorldPos.y * CHUNK_SIZE + blockChunkPos.y;
-					const int minBrigtnessDistance = 20;
-					const float maxWhite = 0.5f; // lower is more white
 
+					// draw white background tile
 					Vector3 whiteBackgroundPos = worldPos.toVec3();
 					whiteBackgroundPos.y -= 0.001;
 					drawRect3D(whiteBackgroundPos, WHITE);
 
+					// compute brightness and transparency of the tile
 					float brightness = (blockHeight - player.pos.y); 
 					brightness /= minBrigtnessDistance; //(minBrigtnessDistance * 0.01);
 
@@ -159,16 +184,15 @@ void drawMap(){
 						colorAlpha = maxWhite;
 
 					Color c = ColorAlpha(ColorBrightness(WHITE, brightness), colorAlpha);
+					// get name of texture
 					auto enumName = magic_enum::enum_name(currentBlock);
 					std::string nameStr { enumName };
-					for (auto & c: nameStr){
-						c = std::tolower((unsigned char)c);
-					}
-					debug.addMessage(nameStr);
+					nameStr = stringToLower(nameStr);
 
 					drawTexture3D(useTexture(nameStr + ".png"), worldPos.toVec3(), c);
 				}
 			}
 		}
 	}
+	printf("count %d \n", count);
 }

@@ -16,6 +16,7 @@
 #include <vector>
 #include <raymath.h>
 #include <lz4.h>
+#include "worldGen.hpp"
 
 // server globals
 ENetAddress address;
@@ -47,6 +48,10 @@ void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, std::vector<T>
 void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, ENetPeer* peer, std::unordered_map<ENetPeer *, std::vector<Vec3Int>>& chunkRequests, std::vector<BlockUpdatePacket> blockUpdatesVec) {
 	std::vector<ChunkData> chunksVec;
 	for (Vec3Int &chunkPos: chunkRequests[peer]) {
+		Chunk c = findOrCreateChunk(chunkPos);
+		if (!c.generated){
+			genChunk(chunkPos);
+		}
 		chunksVec.push_back({findOrCreateChunk(chunkPos), chunkPos});
 		//std::cout << "added chunk: " << chunkPos.x << " " << chunkPos.y << " " << chunkPos.z << std::endl;
 	}

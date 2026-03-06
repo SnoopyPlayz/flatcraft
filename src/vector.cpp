@@ -39,6 +39,10 @@ Vec3Int Vec3Int::operator*(const int other) const{
 	return {x * other, y * other, z * other};
 }
 
+bool Vec3Int::operator==(const Vec3Int& other) const{
+	return {x == other.x && y == other.y && z == other.z};
+}
+
 Vec3Int Vec3Int::operator/(const float c) const{
 	Vec3Int ret;
 	ret.x = std::floor((float)x / (float)c);

@@ -11,6 +11,8 @@ void drawRect3D(Vector3 pos, Color tint);
 void unloadShaders();
 Shader useShader(const std::string& Path);
 void drawTexture3DRot(Texture2D texture, Vector3 pos, Color tint, float rotation);
+std::string stringToLower(std::string s);
+
 
 void drawAllTextures3D();
 
