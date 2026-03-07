@@ -68,7 +68,10 @@ void shutdownNetwork() {
 	networkingStarted = false;
 }
 
-void addToPacketTemp(std::vector<uint8_t>& packetBuffer, void *data, size_t size) {
+void addToPacketTemp(std::vector<uint8_t>& packetBuffer, const void *data, size_t size) {
+	if (size == 0) {
+		return;
+	}
 	const uint8_t* byteData = static_cast<const uint8_t*>(data);
 	packetBuffer.insert(packetBuffer.end(), byteData, byteData + size);
 }

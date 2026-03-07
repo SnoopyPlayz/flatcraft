@@ -62,10 +62,11 @@ bool netowrkTick(){
 		for (int y = -radius; y <= radius; y++) {
 			for (int z = -radius; z <= radius; z++) {
 				Vec3Int chunkpos = (toVec3Int(player.pos) / CHUNK_SIZE) + Vec3Int{x, y, z};
-
 				if (!validChunk(chunkpos)) {
+					Vector3 debugRect = chunkpos.toVec3() * CHUNK_SIZE * BLOCK_SIZE;
+					debugRect.y += 10;
+					drawRect3D(debugRect, RED);
 					chunkRequests.push_back(chunkpos);
-					//std::cout << "requesting chunk: " << chunkpos.x << " " << chunkpos.y << " " << chunkpos.z << std::endl;
 				}
 			}
 		}
@@ -100,7 +101,6 @@ bool netowrkTick(){
 
 				for (const ChunkData& chunkData : chunks) {
 					findOrCreateChunk(chunkData.pos) = std::move(chunkData.chunk);
-					std::cout << "chunk received: " << chunkData.pos.x << " " << chunkData.pos.y << " " << chunkData.pos.z << std::endl;
 				}
 
 				std::vector<BlockUpdatePacket> blockUpdate = unpackVecFromPacket<BlockUpdatePacket>(*(event.packet), ptrPos);

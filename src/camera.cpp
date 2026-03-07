@@ -9,7 +9,7 @@ PlayerCamera playerCamera;
 PlayerCamera::PlayerCamera(){
 	camera.target = {0,0};
 	camera.offset = {0,0};
-	camera.zoom = 1;
+	camera.zoom = 1.0;
 	camera.rotation = 0;
 }
 

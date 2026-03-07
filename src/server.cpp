@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <vector>
 #include <raymath.h>
+#include <stdio.h>
 #include <lz4.h>
 #include "worldGen.hpp"
 
@@ -23,7 +24,7 @@ ENetAddress address;
 ENetHost *server;
 
 template<typename T>
-void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, std::vector<T>& dataVec) {
+void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, const std::vector<T>& dataVec) {
 	const uint64_t uncompressedSize = dataVec.size();
 	addVariableToPacket(packetBuffer, uncompressedSize);
 
@@ -45,20 +46,18 @@ void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, std::vector<T>
 }
 
 
-void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, ENetPeer* peer, std::unordered_map<ENetPeer *, std::vector<Vec3Int>>& chunkRequests, std::vector<BlockUpdatePacket> blockUpdatesVec) {
+void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, const std::vector<Vec3Int>& peerChunkRequests, const std::vector<BlockUpdatePacket>& blockUpdatesVec) {
 	std::vector<ChunkData> chunksVec;
-	for (Vec3Int &chunkPos: chunkRequests[peer]) {
+	for (const Vec3Int& chunkPos: peerChunkRequests) {
+		std::cout << "chunk received: " << chunkPos.x << " " << chunkPos.y << " " << chunkPos.z << std::endl;
 		Chunk& c = findOrCreateChunk(chunkPos);
 		if (!c.generated){// this is torture
 			genChunk(chunkPos);
 		}
 		chunksVec.push_back({findOrCreateChunk(chunkPos), chunkPos});
-		//std::cout << "added chunk: " << chunkPos.x << " " << chunkPos.y << " " << chunkPos.z << std::endl;
 	}
-	//addVecToPacket(packetBuffer, chunksVec);
 	addCompressedVecToPacket(packetBuffer, chunksVec);
 	addVecToPacket(packetBuffer, blockUpdatesVec);
-	chunkRequests[peer].clear();
 }
 
 void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients) {
@@ -76,20 +75,24 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 		playerDataVec.push_back({*uniquePlayer, uniquePeers->connectID});
 	}
 
-	std::vector<uint8_t> packetBuffer; // the packet that will be sent
-
-	addVecToPacket(packetBuffer, playerDataVec);
+	const std::vector<Vec3Int> emptyChunkRequests;
 
 	for (const auto& [peer, clientP] : clients) {
 		if (!clientP) {// this may not be needed TODO FIXME
 			std::cout << "skipping client with id: " << peer->connectID << " because it has no player data" << std::endl;
 		}
 
-		addToPacketForEachPeer(packetBuffer, peer, chunkRequests, blockUpdatesVec);
+		std::vector<uint8_t> packetBuffer; // the packet that will be sent
+		addVecToPacket(packetBuffer, playerDataVec);
+
+		const auto requestIt = chunkRequests.find(peer);
+		const std::vector<Vec3Int>& peerChunkRequests = requestIt != chunkRequests.end() ? requestIt->second : emptyChunkRequests;
+		addToPacketForEachPeer(packetBuffer, peerChunkRequests, blockUpdatesVec);
 
 		ENetPacket* packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
 		enet_peer_send(peer, 0, packet);
 	}
+	chunkRequests.clear();
 	blockUpdatesVec.clear();
 
 	ENetEvent event;

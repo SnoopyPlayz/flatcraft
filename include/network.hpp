@@ -41,18 +41,18 @@ std::vector<T> unpackVecFromPacket(const ENetPacket& packet, uint64_t& startPtr)
 	return result;
 }
 
-void addToPacketTemp(std::vector<uint8_t>& packetBuffer, void *data, size_t size);
+void addToPacketTemp(std::vector<uint8_t>& packetBuffer, const void *data, size_t size);
 
 template<typename T>
-void addVecToPacket(std::vector<uint8_t>& packetBuffer, std::vector<T>& vector) {
+void addVecToPacket(std::vector<uint8_t>& packetBuffer, const std::vector<T>& vector) {
 	const uint64_t vectorSize = vector.size();
-	addToPacketTemp(packetBuffer, (void *)&vectorSize, sizeof(uint64_t));
+	addToPacketTemp(packetBuffer, &vectorSize, sizeof(uint64_t));
 	addToPacketTemp(packetBuffer, vector.data(), sizeof(T) * vector.size());
 }
 
 template<typename T>
 void addVariableToPacket(std::vector<uint8_t>& packetBuffer, const T &data) {
-	addToPacketTemp(packetBuffer, (void *)&data, sizeof(T));
+	addToPacketTemp(packetBuffer, &data, sizeof(T));
 }
 
 #pragma pack(push, 1)
