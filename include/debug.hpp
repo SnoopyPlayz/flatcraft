@@ -8,7 +8,6 @@ class Debug {
 	public:
 		void draw();
 		void addMessage(std::string mesage);
-	private:
 		bool enabled = false;
 };
 

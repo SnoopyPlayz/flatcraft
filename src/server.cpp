@@ -48,8 +48,8 @@ void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, std::vector<T>
 void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, ENetPeer* peer, std::unordered_map<ENetPeer *, std::vector<Vec3Int>>& chunkRequests, std::vector<BlockUpdatePacket> blockUpdatesVec) {
 	std::vector<ChunkData> chunksVec;
 	for (Vec3Int &chunkPos: chunkRequests[peer]) {
-		Chunk c = findOrCreateChunk(chunkPos);
-		if (!c.generated){
+		Chunk& c = findOrCreateChunk(chunkPos);
+		if (!c.generated){// this is torture
 			genChunk(chunkPos);
 		}
 		chunksVec.push_back({findOrCreateChunk(chunkPos), chunkPos});
@@ -65,9 +65,7 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 	static std::unordered_map<ENetPeer *, std::vector<Vec3Int>> chunkRequests;
 	static std::vector<BlockUpdatePacket> blockUpdatesVec;
 	std::vector<PlayerData> playerDataVec;
-	std::vector<ChunkData> chunksVec;
 	playerDataVec.reserve(clients.size());
-	chunksVec.reserve(map.size());
 
 	// convert map to vector and remove player = nullopt
 	for (const auto& [uniquePeers, uniquePlayer] : clients) {
@@ -77,15 +75,10 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 		}
 		playerDataVec.push_back({*uniquePlayer, uniquePeers->connectID});
 	}
-	// convert map to vector of ChunkData
-	for (const auto& [pos, chunk] : map){
-		chunksVec.push_back({chunk, pos});
-	}
 
 	std::vector<uint8_t> packetBuffer; // the packet that will be sent
 
 	addVecToPacket(packetBuffer, playerDataVec);
-	//addVecToPacket(packetBuffer, chunksVec);
 
 	for (const auto& [peer, clientP] : clients) {
 		if (!clientP) {// this may not be needed TODO FIXME

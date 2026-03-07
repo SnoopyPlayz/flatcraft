@@ -2,6 +2,7 @@
 #include <cstdint>
 #include "vector.hpp"
 #include <map>
+#include <mutex>
 #include <optional>
 
 const int CHUNK_SIZE = 16;
@@ -20,10 +21,13 @@ typedef enum Block{
 	STONE,
 } Block;
 
-extern std::map<Vec3Int, Chunk> map;
+//extern std::map<Vec3Int, Chunk> map;
+extern std::mutex mapMtx;
+
 
 void createShadowTexture();
 void createShadowsForMap();
+void debugMap();
 
 void drawMap();
 

@@ -46,8 +46,6 @@ int main(int argc, char *argv[]) {
 	createShadowTexture();
 
 	worldGenInit();
-	genChunk({0,1,0});
-	genChunk({0,0,0});
 
 	while (!WindowShouldClose()) {
 		BeginDrawing();
@@ -63,6 +61,7 @@ int main(int argc, char *argv[]) {
 
 		drawAllTextures3D();
 
+		debugMap();
 		DrawFPS(10, 10);
 		EndMode2D();
 		debug.draw();

@@ -17,13 +17,16 @@
 #include <magic_enum.hpp>
 
 std::map<Vec3Int, Chunk> map;
+std::mutex mapMtx;
 
 void createChunk(Vec3Int pos){
+	std::lock_guard<std::mutex> lock(mapMtx);
 	auto result = map.emplace(std::make_pair(pos, Chunk{}));
 	assert(result.second);
 }
 
 Chunk& findChunk(Vec3Int pos){
+	std::lock_guard<std::mutex> lock(mapMtx);
 	auto it = map.find(pos);
 	assert(it != map.end() && "cant find chunk");
 
@@ -39,6 +42,7 @@ Chunk& findOrCreateChunk(Vec3Int pos){
 }
 
 bool validChunk(Vec3Int pos){
+	std::lock_guard<std::mutex> lock(mapMtx);
 	auto it = map.find(pos);
 	if (it != map.end()) {
 		return true;
@@ -55,6 +59,7 @@ Block getBlock(Vec3Int pos){
 	}
 
 	Chunk& c = findChunk(chunkPos);
+	std::lock_guard<std::mutex> lock(mapMtx);
 	return (Block)c.blocks[localChunkPos.x][localChunkPos.y][localChunkPos.z];
 }
 
@@ -67,6 +72,8 @@ std::optional<Vec3Int> findTopBlock(int x, int y){
 	return std::nullopt;
 }
 
+
+
 void setBlock(Vec3Int pos, int block){
 	Vec3Int chunkPos = pos / CHUNK_SIZE;
 	Vec3Int localChunkPos = pos.mod(CHUNK_SIZE);
@@ -75,6 +82,7 @@ void setBlock(Vec3Int pos, int block){
 		createChunk(chunkPos);
 	}
 	Chunk& c = findChunk(chunkPos);
+	std::lock_guard<std::mutex> lock(mapMtx);
 	c.blocks[localChunkPos.x][localChunkPos.y][localChunkPos.z] = block;
 	c.changed = true;
 }
@@ -86,8 +94,40 @@ void createShadowTexture(){
 	UnloadImage(shadowImage);
 }
 
+bool culling(Vec3Int pos){
+	const int radius = 1;
+	Vec3Int position = toVec3Int(player.pos) / CHUNK_SIZE;
+
+	/*for (int x = position.x - radius; x <= radius; x++) {
+		for (int y = position.y - radius; y <= radius; y++) {
+			for (int z = position.z - radius; z <= radius; z++) {
+
+				if(position == (Vec3Int){x + pos.x,y + pos.y,z + pos.z}){
+					return true;
+				}
+			}
+		}
+	}*/
+
+	for (int x = -radius; x <= radius; x++) {
+		for (int y = -radius; y <= radius; y++) {
+			for (int z = -radius; z <= radius; z++) {
+
+				if (position == pos + Vec3Int{x,y,z}) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 void createShadowsForMap(){
 	for (const auto& pair : map) {
+		if(!culling(pair.first)){
+			continue;
+		}
+
 		for (int x{}; x < CHUNK_SIZE; x++) {
 			for (int y{}; y < CHUNK_SIZE; y++) {
 				for (int z{}; z < CHUNK_SIZE; z++) {
@@ -121,30 +161,22 @@ void createShadowsForMap(){
 	}
 }
 
-bool culling(Vec3Int pos){
-	const int radius = 1;
-	Vec3Int position = toVec3Int(player.pos) / CHUNK_SIZE;
-
-	for (int x = position.x - radius; x <= radius; x++) {
-		for (int y = position.y - radius; y <= radius; y++) {
-			for (int z = position.z - radius; z <= radius; z++) {
-
-				if(position == (Vec3Int){x + pos.x,y + pos.y,z + pos.z}){
-					return true;
-				}
-			}
-		}
+void debugMap(){
+	if (!debug.enabled) {
+		return;
 	}
-	return false;
+	for (const auto& pair : map) {
+		Vec3Int pos = pair.first;
+		drawTextSDF(std::to_string(pos.x) + " " + std::to_string(pos.z), pos.x * CHUNK_SIZE * BLOCK_SIZE, pos.z * CHUNK_SIZE * BLOCK_SIZE, 50, RED);
+		drawTextSDF(std::to_string(pos.x) + " " + std::to_string(pos.z), pos.x * CHUNK_SIZE * BLOCK_SIZE, pos.z * CHUNK_SIZE * BLOCK_SIZE, 51, GRAY);
+	}
 }
 
 void drawMap(){
-	int count = 0;
 	for (const auto& pair : map) {
 		if(!culling(pair.first)){
 			continue;
 		}
-		count++;
 
 		for (int x{}; x < CHUNK_SIZE; x++) {
 			for (int y{}; y < CHUNK_SIZE; y++) {
@@ -194,5 +226,4 @@ void drawMap(){
 			}
 		}
 	}
-	printf("count %d \n", count);
 }
