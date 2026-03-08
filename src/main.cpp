@@ -6,6 +6,7 @@
 #include "rayUtils.hpp"
 #include "worldGen.hpp"
 #include <cstdint>
+#include <raylib.h>
 #include <string>
 
 int main(int argc, char *argv[]) {

@@ -14,7 +14,8 @@ void worldGenInit(){
 }
 
 void setBlockInNotGeneratedChunk(Vec3Int pos, Block block){
-	if (findOrCreateChunk(pos).generated == false) {
+	Vec3Int chunkPos = pos / CHUNK_SIZE;
+	if (findOrCreateChunk(chunkPos).generated == false) {
 		setBlock(pos, block);
 	}
 }
@@ -26,9 +27,9 @@ void genChunk(Vec3Int chunkPos){
 
 	for(int x = worldPos.x; x < worldPos.x + CHUNK_SIZE; x++){
 		for(int z = worldPos.z; z < worldPos.z + CHUNK_SIZE; z++){
-			int height = (int)(noise.GetNoise((float)x,(float)z) * 10);
+			int height = (int)((noise.GetNoise((float)x,(float)z) + 1) * 10);
 
-			if(height < worldPos.y || height > worldPos.y + CHUNK_SIZE){
+			if(height < worldPos.y || height >= worldPos.y + CHUNK_SIZE){
 				continue;
 			}
 

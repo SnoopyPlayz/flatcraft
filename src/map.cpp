@@ -94,20 +94,8 @@ void createShadowTexture(){
 	UnloadImage(shadowImage);
 }
 
-bool culling(Vec3Int pos){
-	const int radius = 1;
-	Vec3Int position = toVec3Int(player.pos) / CHUNK_SIZE;
-
-	/*for (int x = position.x - radius; x <= radius; x++) {
-		for (int y = position.y - radius; y <= radius; y++) {
-			for (int z = position.z - radius; z <= radius; z++) {
-
-				if(position == (Vec3Int){x + pos.x,y + pos.y,z + pos.z}){
-					return true;
-				}
-			}
-		}
-	}*/
+bool culling(Vec3Int pos, Vec3Int center, const int radius){
+	Vec3Int position = center / CHUNK_SIZE;
 
 	for (int x = -radius; x <= radius; x++) {
 		for (int y = -radius; y <= radius; y++) {
@@ -124,7 +112,7 @@ bool culling(Vec3Int pos){
 
 void createShadowsForMap(){
 	for (const auto& pair : map) {
-		if(!culling(pair.first)){
+		if(!culling(pair.first, toVec3Int(player.pos), 1)){
 			continue;
 		}
 
@@ -167,13 +155,15 @@ void debugMap(){
 	}
 	for (const auto& pair : map) {
 		Vec3Int pos = pair.first;
-		drawTextSDF(std::to_string(pos.x) + " " + std::to_string(pos.z), pos.x * CHUNK_SIZE * BLOCK_SIZE, pos.z * CHUNK_SIZE * BLOCK_SIZE, 50, RED);
+		if(culling(pos, toVec3Int(player.pos), 1)){
+			drawTextSDF(std::to_string(pos.x) + " " + std::to_string(pos.z), pos.x * CHUNK_SIZE * BLOCK_SIZE, pos.z * CHUNK_SIZE * BLOCK_SIZE, 50, RED);
+		}
 	}
 }
 
 void drawMap(){
 	for (const auto& pair : map) {
-		if(!culling(pair.first)){
+		if(!culling(pair.first, toVec3Int(player.pos), 1)){
 			continue;
 		}
 
