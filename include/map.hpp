@@ -24,7 +24,6 @@ typedef enum Block{
 //extern std::map<Vec3Int, Chunk> map;
 extern std::mutex mapMtx;
 
-
 void createShadowTexture();
 void createShadowsForMap();
 void debugMap();
@@ -40,6 +39,7 @@ bool validChunk(Vec3Int pos);
 
 Block getBlock(Vec3Int pos);
 void setBlock(Vec3Int pos, int block);
+void markShadowAffectedChunksChanged(Vec3Int chunkPos);
 
 std::optional<Vec3Int> findTopBlock(int x, int y);
 

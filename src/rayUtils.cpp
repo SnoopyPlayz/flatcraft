@@ -93,13 +93,6 @@ void drawTextSDF(const std::string& text, float posX, float posY, int fontSize, 
 	EndShaderMode();
 }
 
-struct Texture2DInstance {
-	Vector3 position;
-	std::optional<Texture2D> texture;
-	Color tint;
-	float rotation;
-};
-
 std::vector<Texture2DInstance> vertices;
 
 void DrawTextureWithRot(Texture tex, float x, float y, float rot, Color col){
@@ -124,12 +117,29 @@ void drawRect3D(Vector3 pos, Color tint){
 	vertices.push_back({{pos.x, pos.y, pos.z}, std::nullopt, tint, 0});
 }
 
+void drawTexture3DInstances(const std::vector<Texture2DInstance>& instances){
+	vertices.insert(vertices.end(), instances.begin(), instances.end());
+}
+
 void drawAllTextures3D(){
 	std::sort(vertices.begin(), vertices.end(), [](const auto& a, const auto& b) {
 		return (a.position.y < b.position.y);
 	});
 
+	/*std::map<std::pair<float, float>, float> highestYByColumn;
+	for (const Texture2DInstance& tex : vertices) {
+		const auto column = std::make_pair(tex.position.x, tex.position.z);
+		auto [entry, inserted] = highestYByColumn.emplace(column, tex.position.y);
+		if (!inserted && tex.position.y > entry->second) {
+			entry->second = tex.position.y;
+		}
+	}*/
+
 	for (const Texture2DInstance& tex: vertices) {
+		/*const auto column = std::make_pair(tex.position.x, tex.position.z);
+		if (tex.tint.a < 0 && tex.position.y < highestYByColumn[column]) {
+			continue;
+		}*/
 		if (tex.texture.has_value()) {
 			DrawTextureWithRot(tex.texture.value(), tex.position.x, tex.position.z, tex.rotation, tex.tint);
 			//DrawTextureEx(tex.texture.value(), {tex.position.x, tex.position.z}, tex.rotation, 1, tex.tint);

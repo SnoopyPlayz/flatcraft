@@ -101,6 +101,7 @@ bool netowrkTick(){
 
 				for (const ChunkData& chunkData : chunks) {
 					findOrCreateChunk(chunkData.pos) = std::move(chunkData.chunk);
+					markShadowAffectedChunksChanged(chunkData.pos);
 				}
 
 				std::vector<BlockUpdatePacket> blockUpdate = unpackVecFromPacket<BlockUpdatePacket>(*(event.packet), ptrPos);
