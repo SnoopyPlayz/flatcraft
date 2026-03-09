@@ -106,7 +106,9 @@ bool netowrkTick(){
 
 				std::vector<BlockUpdatePacket> blockUpdate = unpackVecFromPacket<BlockUpdatePacket>(*(event.packet), ptrPos);
 				for (const BlockUpdatePacket& blockUpdatePacket : blockUpdate) {
-					setBlock(blockUpdatePacket.pos, blockUpdatePacket.block);
+					if (validChunk(blockUpdatePacket.pos / CHUNK_SIZE)) {
+						setBlock(blockUpdatePacket.pos, blockUpdatePacket.block);
+					}
 				}
 
 				enet_packet_destroy(event.packet);
