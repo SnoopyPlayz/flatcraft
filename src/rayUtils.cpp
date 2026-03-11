@@ -32,6 +32,7 @@ std::string stringToLower(std::string s){
 	return s;
 }
 
+
 void unloadShaders(){
 	for (const auto& pair : shaderMap) {
 		UnloadShader(pair.second);

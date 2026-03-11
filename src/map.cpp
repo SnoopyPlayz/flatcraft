@@ -143,6 +143,7 @@ bool culling(Vec3Int pos, Vec3Int center, const int radius){
 void createShadowsForMap(){
 	std::vector<Vec3Int> rebuiltChunks;
 
+	int i = 0;
 	for (const auto& pair : map) {
 		if(!culling(pair.first, toVec3Int(player.pos), 1)){
 			continue;
@@ -170,7 +171,12 @@ void createShadowsForMap(){
 
 					Vector3 pos = worldPos.toVec3();
 					pos.y = worldPos.y + 0.01f; // epsilon
+						
+					if (getBlock(blockPos + Vec3Int{0, 1, 0}) != AIR) {
+						continue;
+					}
 
+					i++;
 					if (getBlock(blockPos + Vec3Int{0, 1, -1}) != AIR) {
 						cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 0});
 					}
@@ -190,6 +196,9 @@ void createShadowsForMap(){
 		cachedShadowChunk.ready = true;
 		drawTexture3DInstances(cachedShadowChunk.vertices);
 		rebuiltChunks.push_back(pair.first);
+	}
+	if (i > 0) {
+		std::cout << "rebuilt shadow chunk " + std::to_string(i) << std::endl;
 	}
 
 	std::lock_guard<std::mutex> lock(mapMtx);
@@ -264,12 +273,7 @@ void drawMap(){
 						colorAlpha = maxWhite;
 
 					Color c = ColorAlpha(ColorBrightness(WHITE, brightness), colorAlpha);
-					// get name of texture
-					auto enumName = magic_enum::enum_name(currentBlock);
-					std::string nameStr { enumName };
-					nameStr = stringToLower(nameStr);
-
-					drawTexture3D(useTexture(nameStr + ".png"), worldPixelPos.toVec3(), c);
+					drawTexture3D(useTexture(getEnumName(currentBlock) + ".png"), worldPixelPos.toVec3(), c);
 				}
 			}
 		}

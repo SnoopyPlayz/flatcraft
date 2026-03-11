@@ -8,9 +8,35 @@
 #include "debug.hpp"
 #include "player.hpp"
 #include "network.hpp"
+#include <iostream>
 
 Player player;
 std::vector<BlockUpdatePacket> blockUpdates;
+
+bool inventoryOpen = false;
+
+int in = 0;
+void Player::inventoryUpdate(){
+	if (IsKeyPressed(KEY_E)) {
+		inventory[in] = (Block)(STONE);
+		std::cout << "inventory update " + std::to_string(in) << std::endl;
+		in++;
+		inventoryOpen = !inventoryOpen;
+	}
+	if (!inventoryOpen) {
+		return;
+	}
+	for (int i{}; i < PLAYER_INVENTORY_SIZE; i++) {
+		if (i == AIR){
+			continue;
+		}
+		DrawTexture(useTexture(getEnumName((Block)inventory[i]) + ".png"), 2 * BLOCK_SIZE * i, 100, WHITE);
+	}
+}
+
+void Player::updateUI(){
+	inventoryUpdate();
+}
 
 void Player::update(){
 	// Select block
@@ -18,6 +44,20 @@ void Player::update(){
 		if (IsKeyPressed(key)) {
 			selectedBlock = static_cast<Block>(key - KEY_ZERO);
 		}
+	}
+
+	//zoom
+	static float scroll;
+	scroll += GetMouseWheelMove() * 0.1f;
+	debug.addMessage("scroll: %R " + std::to_string(scroll));
+	if (IsKeyDown(KEY_C)){
+		if (scroll < 0.1f) {
+			scroll = 0.1f;
+		}
+		playerCamera.camera.zoom = scroll;
+	} else {
+		playerCamera.camera.zoom = 1.0f;
+		scroll = 1;
 	}
 
 	const float playerSpeed = 0.12;

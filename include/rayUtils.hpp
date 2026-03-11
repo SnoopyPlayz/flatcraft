@@ -4,6 +4,8 @@
 #include <vector>
 #include <raylib.h>
 #include "vector.hpp"
+#include <magic_enum.hpp>
+
 
 struct Texture2DInstance {
 	Vector3 position;
@@ -26,5 +28,10 @@ std::string stringToLower(std::string s);
 void drawAllTextures3D();
 void drawTexture3DInstances(const std::vector<Texture2DInstance>& instances);
 
+std::string getEnumName(auto enumVal){
+	auto enumName = magic_enum::enum_name(enumVal);
+	std::string nameStr { enumName };
+	return stringToLower(nameStr);
+}
 
 extern Font fontSDF; // the current font

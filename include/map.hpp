@@ -19,6 +19,7 @@ typedef enum Block{
 	AIR,
 	GRASS,
 	STONE,
+	CRAFTING_TABLE,
 } Block;
 
 //extern std::map<Vec3Int, Chunk> map;
