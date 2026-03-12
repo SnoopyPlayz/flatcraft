@@ -18,6 +18,7 @@ class Player{
 		Block selectedBlock = GRASS;
 		Vector3 velocity = {0, 0, 0};
 		uint8_t inventory[PLAYER_INVENTORY_SIZE];
+		int health = 20;
 	private:
 		void inventoryUpdate();
 };
