@@ -42,6 +42,7 @@ int main(int argc, char *argv[]) {
 
 	configureNetwork(useInternalServer, networkHost, networkPort);
 	initNetwork();
+	SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 	InitWindow(1280, 720, "flatCraft");
 	if (hasWindowPos) SetWindowPosition(1920 + windowPosX, windowPosY);
 	setAndLoadFont("Roboto-VariableFont_wdth,wght.ttf");

@@ -17,6 +17,9 @@ bool inventoryOpen = false;
 
 int in = 0;
 void Player::inventoryUpdate(){
+	const float windowBorder = 50;
+	const float windowRoundess = 0.1;
+
 	if (IsKeyPressed(KEY_E)) {
 		inventory[in] = (Block)(STONE);
 		std::cout << "inventory update " + std::to_string(in) << std::endl;
@@ -26,11 +29,14 @@ void Player::inventoryUpdate(){
 	if (!inventoryOpen) {
 		return;
 	}
+
+	DrawRectangleRounded((Rectangle){windowBorder, windowBorder, (float)GetScreenWidth() - windowBorder * 2, (float)GetScreenHeight() - windowBorder * 2}, windowRoundess, 0, WHITE);
 	for (int i{}; i < PLAYER_INVENTORY_SIZE; i++) {
-		if (i == AIR){
+		if (inventory[i] == AIR){
 			continue;
 		}
-		DrawTexture(useTexture(getEnumName((Block)inventory[i]) + ".png"), 2 * BLOCK_SIZE * i, 100, WHITE);
+
+		DrawTexture(useTexture(getEnumName((Block)inventory[i]) + ".png"), 1.1 * BLOCK_SIZE * i, 100, WHITE);
 	}
 }
 
