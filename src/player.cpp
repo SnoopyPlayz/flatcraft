@@ -48,7 +48,7 @@ void Player::inventoryUpdate(){
 	static int lastPos;
 
 	for (int i{}; i < PLAYER_INVENTORY_SIZE; i++) {
-		float pixelPosX = 1.1 * BLOCK_SIZE * x;
+		float pixelPosX = 1.2 * BLOCK_SIZE * x;
 
 		if (x > rowSize || pixelPosX + BLOCK_SIZE > GetScreenWidth()){
 			x = 1;
@@ -57,6 +57,7 @@ void Player::inventoryUpdate(){
 
 		pixelPosX = 1.2 * BLOCK_SIZE * x;
 
+		// item background
 		const float itemGridOffset = 5;
 		DrawRectangleRounded((Rectangle){pixelPosX - itemGridOffset, (float)y - itemGridOffset, BLOCK_SIZE + itemGridOffset * 2, BLOCK_SIZE + itemGridOffset * 2}, windowRoundess,  1, DARKGRAY);
 
@@ -69,10 +70,30 @@ void Player::inventoryUpdate(){
 
 		// colision with cursor
 		if (AABBcolBox(pixelPosX,y,BLOCK_SIZE,GetMouseX(),GetMouseY(), 1)){
+			if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && inventory[i] != AIR){
+				selected = true;
+				selectedBlock = (Block)inventory[i];
+				inventory[i] = AIR;
+				lastPos = i;
+			}
+
+			if(selected){
+				if(!IsMouseButtonDown(MOUSE_BUTTON_LEFT)){
+					inventory[lastPos] = (Block)inventory[i];
+					inventory[i] = selectedBlock;
+					selected = false;
+					selectedBlock = AIR;
+				}
+			}
+
 			DrawRectangle(pixelPosX, y, BLOCK_SIZE, BLOCK_SIZE, ColorAlpha(GRAY, 0.5));
 		}
-	}
 
+		// draw selectedBlock
+		if(selected){
+			DrawTexture(useTexture(getEnumName(selectedBlock) + ".png"), GetMouseX() - BLOCK_SIZE * 0.5, GetMouseY() - BLOCK_SIZE * 0.5, WHITE);
+		}
+	}
 }
 
 void Player::updateUI(){
