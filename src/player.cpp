@@ -100,6 +100,7 @@ void Player::updateUI(){
 	inventoryUpdate();
 }
 
+extern const float PLAYER_ACCELERATION_SPEED = 0.2;
 void Player::update(){
 	// Select block
 	for (int key = KEY_ZERO; key <= KEY_NINE; key++) {
@@ -122,10 +123,11 @@ void Player::update(){
 		scroll = 1;
 	}
 
-	const float playerSpeed = 0.12;
+	const float playerSpeed = IsKeyDown(KEY_LEFT_SHIFT) ? 0.18 : 0.12;
 	const float playerRunningMul = 1.5;
 	// Draw player
 	drawTexture3D(useTexture("player.png"), pos * BLOCK_SIZE, WHITE);
+
 
 	Vector3 vel = {0, 0, 0};
 
@@ -133,11 +135,9 @@ void Player::update(){
 	vel.y = IsKeyDown(KEY_SPACE) - IsKeyDown(KEY_LEFT_CONTROL);
 	vel.z = IsKeyDown(KEY_S) - IsKeyDown(KEY_W);
 
-	velocity = Vector3Normalize(vel) * playerSpeed;
-
-	if (IsKeyDown(KEY_LEFT_SHIFT))
-		velocity = velocity * playerRunningMul;
-
+	Vector3 targetVelocity = Vector3Normalize(vel) * playerSpeed;
+	velocity = Vector3Lerp(velocity, targetVelocity, PLAYER_ACCELERATION_SPEED);
+	
 	pos += velocity;
 
 	Vector2 mouseScreen = GetMousePosition();

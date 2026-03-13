@@ -42,14 +42,44 @@ std::vector<T> unpackCompressedVecFromPacket(const ENetPacket& packet, uint64_t&
 	return decompressedData;
 }
 
+
 void drawClients(){
+	const float lerpAmount = 0.1; // lower = less stutter
+	static std::vector<PlayerData> oldPlayers;
 	std::lock_guard<std::mutex> lock(playersMtx);
-	for (PlayerData& playerClient : players) {
-		if (playerClient.peer == peer->connectID) {
+		
+	for (unsigned long i{}; i < oldPlayers.size(); i++) {
+		bool playerExists = false;
+		for(PlayerData& player : players){
+			if (player.peer == oldPlayers[i].peer){
+				playerExists = true;
+			}
+		}
+		if(!playerExists){
+			oldPlayers[i] = oldPlayers.back();
+			oldPlayers.pop_back();
+		}
+	}
+
+	for(PlayerData& player : players){
+		if (player.peer == peer->connectID) {
 			continue;
 		}
-		drawTexture3D(useTexture("player.png"), playerClient.player.pos * BLOCK_SIZE, WHITE);
-		playerClient.player.pos = playerClient.player.pos + playerClient.player.velocity;
+		bool playerExists = false;
+		for (PlayerData& oldPlayer : oldPlayers) {
+			if (player.peer == oldPlayer.peer){
+				playerExists = true;
+				Player &p = oldPlayer.player;
+				drawTexture3D(useTexture("player.png"), p.pos * BLOCK_SIZE, WHITE);
+
+				p.pos += player.player.velocity;
+				p.pos = Vector3Lerp(p.pos, player.player.pos, lerpAmount);
+				continue;
+			}
+		}
+		if (!playerExists){
+			oldPlayers.push_back(player);
+		}
 	}
 }
 
@@ -63,9 +93,9 @@ bool netowrkTick(){
 			for (int z = -radius; z <= radius; z++) {
 				Vec3Int chunkpos = (toVec3Int(player.pos) / CHUNK_SIZE) + Vec3Int{x, y, z};
 				if (!validChunk(chunkpos)) {
-					Vector3 debugRect = chunkpos.toVec3() * CHUNK_SIZE * BLOCK_SIZE;
-					debugRect.y += 10;
-					drawRect3D(debugRect, RED);
+					//Vector3 debugRect = chunkpos.toVec3() * CHUNK_SIZE * BLOCK_SIZE;
+					//debugRect.y += 10;
+					//drawRect3D(debugRect, RED);
 					chunkRequests.push_back(chunkpos);
 				}
 			}
