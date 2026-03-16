@@ -8,6 +8,7 @@
 #include "debug.hpp"
 #include "player.hpp"
 #include "network.hpp"
+#include "vector.hpp"
 #include <iostream>
 
 Player player;
@@ -100,34 +101,9 @@ void Player::updateUI(){
 	inventoryUpdate();
 }
 
-extern const float PLAYER_ACCELERATION_SPEED = 0.2;
-void Player::update(){
-	// Select block
-	for (int key = KEY_ZERO; key <= KEY_NINE; key++) {
-		if (IsKeyPressed(key)) {
-			selectedBlock = static_cast<Block>(key - KEY_ZERO);
-		}
-	}
-
-	//zoom
-	static float scroll;
-	scroll += GetMouseWheelMove() * 0.1f;
-	debug.addMessage("scroll: %R " + std::to_string(scroll));
-	if (IsKeyDown(KEY_C)){
-		if (scroll < 0.1f) {
-			scroll = 0.1f;
-		}
-		playerCamera.camera.zoom = scroll;
-	} else {
-		playerCamera.camera.zoom = 1.0f;
-		scroll = 1;
-	}
-
-	const float playerSpeed = IsKeyDown(KEY_LEFT_SHIFT) ? 0.18 : 0.12;
-	const float playerRunningMul = 1.5;
-	// Draw player
-	drawTexture3D(useTexture("player.png"), pos * BLOCK_SIZE, WHITE);
-
+void Player::updateMovement(){
+	const float playerRunningSpeed = 0.18;
+	const float playerSpeed = IsKeyDown(KEY_LEFT_SHIFT) ? playerRunningSpeed : 0.12;
 
 	Vector3 vel = {0, 0, 0};
 
@@ -139,6 +115,15 @@ void Player::update(){
 	velocity = Vector3Lerp(velocity, targetVelocity, PLAYER_ACCELERATION_SPEED);
 	
 	pos += velocity;
+}
+
+void Player::updateBlockPlacingBreaking(){
+	// Select block
+	for (int key = KEY_ZERO; key <= KEY_NINE; key++) {
+		if (IsKeyPressed(key)) {
+			selectedBlock = static_cast<Block>(key - KEY_ZERO);
+		}
+	}
 
 	Vector2 mouseScreen = GetMousePosition();
 	Vector2 m = GetScreenToWorld2D(mouseScreen, playerCamera.camera);
@@ -146,6 +131,10 @@ void Player::update(){
 	int z = std::floor(m.y / (float)BLOCK_SIZE);
 
 	auto topBlock = findTopBlock(x, z);
+
+	if (topBlock.has_value()) {
+		drawRect3D({(float)x * BLOCK_SIZE ,(float)(topBlock->y + 1) * BLOCK_SIZE, (float)z * BLOCK_SIZE}, ColorAlpha(DARKGRAY, 0.4f));
+	}
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
 		//std::lock_guard<std::mutex> lock(blockUpdateMutex);
@@ -170,9 +159,31 @@ void Player::update(){
 		}
 	}
 
-	//Debug info
-	debug.addMessage("Player pos: %R x: " + std::to_string(pos.x) + " %G Y: " + std::to_string(pos.y) + " %B Z: " + std::to_string(pos.z));
 	debug.addMessage("cursor pos: %R x: " + std::to_string(x) + " %G Y: " 
 			+ (topBlock.has_value() ? std::to_string(topBlock->y) : "N/A")
 			+ " %B Z: " + std::to_string(z));
+}
+
+const float PLAYER_ACCELERATION_SPEED = 0.3;
+void Player::update(){
+
+	//zoom
+	static float scroll;
+	scroll += GetMouseWheelMove() * 0.1f;
+	if (IsKeyDown(KEY_C)){
+		if (scroll < 0.1f) {
+			scroll = 0.1f;
+		}
+		playerCamera.camera.zoom = scroll;
+	} else {
+		playerCamera.camera.zoom = 1.0f;
+		scroll = 1;
+	}
+
+	updateMovement();
+	updateBlockPlacingBreaking();
+	// Draw player
+	drawTexture3D(useTexture("player.png"), pos * BLOCK_SIZE, WHITE);
+
+	debug.addMessage("Player pos: %R x: " + std::to_string(pos.x) + " %G Y: " + std::to_string(pos.y) + " %B Z: " + std::to_string(pos.z));
 }

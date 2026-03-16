@@ -22,6 +22,8 @@ class Player{
 		int health = 20;
 	private:
 		void inventoryUpdate();
+		void updateMovement();
+		void updateBlockPlacingBreaking();
 };
 
 struct PlayerData{
