@@ -88,17 +88,13 @@ bool netowrkTick(){
 	std::vector<Vec3Int> chunkRequests;
 
 	const int radius = 1;
-	for (int x = -radius; x <= radius; x++) {
-		for (int y = -radius; y <= radius; y++) {
-			for (int z = -radius; z <= radius; z++) {
-				Vec3Int chunkpos = (toVec3Int(player.pos) / CHUNK_SIZE) + Vec3Int{x, y, z};
-				if (!validChunk(chunkpos)) {
-					//Vector3 debugRect = chunkpos.toVec3() * CHUNK_SIZE * BLOCK_SIZE;
-					//debugRect.y += 10;
-					//drawRect3D(debugRect, RED);
-					chunkRequests.push_back(chunkpos);
-				}
-			}
+	RADUIS(radius){
+		Vec3Int chunkpos = (toVec3Int(player.pos) / CHUNK_SIZE) + Vec3Int{x, y, z};
+		if (!validChunk(chunkpos)) {
+			//Vector3 debugRect = chunkpos.toVec3() * CHUNK_SIZE * BLOCK_SIZE;
+			//debugRect.y += 10;
+			//drawRect3D(debugRect, RED);
+			chunkRequests.push_back(chunkpos);
 		}
 	}
 

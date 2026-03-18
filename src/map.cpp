@@ -34,16 +34,12 @@ void createChunk(Vec3Int pos){
 
 void markShadowAffectedChunksChanged(Vec3Int chunkPos){
 	std::lock_guard<std::mutex> lock(mapMtx);
-	for (int x = -1; x <= 1; x++) {
-		for (int y = -1; y <= 0; y++) {
-			for (int z = -1; z <= 1; z++) {
-				auto it = map.find(chunkPos + Vec3Int{x, y, z});
-				if (it == map.end()) {
-					continue;
-				}
-				it->second.changed = true;
-			}
+	RADUIS(1){
+		auto it = map.find(chunkPos + Vec3Int{x, y, z});
+		if (it == map.end()) {
+			continue;
 		}
+		it->second.changed = true;
 	}
 }
 
@@ -104,16 +100,13 @@ void setBlock(Vec3Int pos, int block){
 
 	std::lock_guard<std::mutex> lock(mapMtx);
 	map[chunkPos].blocks[localChunkPos.x][localChunkPos.y][localChunkPos.z] = block;
-	for (int x = -1; x <= 1; x++) {
-		for (int y = -1; y <= 0; y++) {
-			for (int z = -1; z <= 1; z++) {
-				auto it = map.find(chunkPos + Vec3Int{x, y, z});
-				if (it == map.end()) {
-					continue;
-				}
-				it->second.changed = true;
-			}
+
+	RADUIS(1){
+		auto it = map.find(chunkPos + Vec3Int{x, y, z});
+		if (it == map.end()) {
+			continue;
 		}
+		it->second.changed = true;
 	}
 }
 
@@ -127,14 +120,9 @@ void createShadowTexture(){
 bool culling(Vec3Int pos, Vec3Int center, const int radius){
 	Vec3Int position = center / CHUNK_SIZE;
 
-	for (int x = -radius; x <= radius; x++) {
-		for (int y = -radius; y <= radius; y++) {
-			for (int z = -radius; z <= radius; z++) {
-
-				if (position == pos + Vec3Int{x,y,z}) {
-					return true;
-				}
-			}
+	RADUIS(radius){
+		if (position == pos + Vec3Int{x,y,z}) {
+			return true;
 		}
 	}
 	return false;
@@ -157,40 +145,37 @@ void createShadowsForMap(){
 
 		cachedShadowChunk.vertices.clear();
 
-		for (int x{}; x < CHUNK_SIZE; x++) {
-			for (int y{}; y < CHUNK_SIZE; y++) {
-				for (int z{}; z < CHUNK_SIZE; z++) {
-					if (pair.second.blocks[x][y][z] == AIR) {
-						continue;
-					}
-					
-					const Vec3Int chunkWorldPos = pair.first;
-					const Vec3Int blockChunkPos = Vec3Int{x, y, z};
-					const Vec3Int blockPos = (chunkWorldPos * CHUNK_SIZE) + blockChunkPos;
-					const Vec3Int worldPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos) * BLOCK_SIZE;
 
-					Vector3 pos = worldPos.toVec3();
-					pos.y = worldPos.y + 0.01f; // epsilon
-						
-					if (getBlock(blockPos + Vec3Int{0, 1, 0}) != AIR) {
-						continue;
-					}
-
-					i++;
-					if (getBlock(blockPos + Vec3Int{0, 1, -1}) != AIR) {
-						cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 0});
-					}
-					if (getBlock(blockPos + Vec3Int{0, 1, 1}) != AIR) {
-						cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 180});
-					}
-					if (getBlock(blockPos + Vec3Int{1, 1, 0}) != AIR) {
-						cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 90});
-					}
-					if (getBlock(blockPos + Vec3Int{-1, 1, 0}) != AIR) {
-						cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 270});
-					}
-				}
+		FOR_XYZ(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE){
+			if (pair.second.blocks[x][y][z] == AIR) {
+				continue;
 			}
+
+			const Vec3Int chunkWorldPos = pair.first;
+			const Vec3Int blockChunkPos = Vec3Int{x, y, z};
+			const Vec3Int blockPos = (chunkWorldPos * CHUNK_SIZE) + blockChunkPos;
+			const Vec3Int worldPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos) * BLOCK_SIZE;
+
+			Vector3 pos = worldPos.toVec3();
+			pos.y = worldPos.y + 0.01f; // epsilon
+
+			if (getBlock(blockPos + Vec3Int{0, 1, 0}) != AIR) {
+				continue;
+			}
+
+			i++;
+			if (getBlock(blockPos + Vec3Int{0, 1, -1}) != AIR) {
+				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 0});
+			}
+			if (getBlock(blockPos + Vec3Int{0, 1, 1}) != AIR) {
+				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 180});
+			}
+			if (getBlock(blockPos + Vec3Int{1, 1, 0}) != AIR) {
+				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 90});
+			}
+			if (getBlock(blockPos + Vec3Int{-1, 1, 0}) != AIR) {
+				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 270});
+			}	
 		}
 
 		cachedShadowChunk.ready = true;
@@ -229,53 +214,49 @@ void drawMap(){
 			continue;
 		}
 
-		for (int x{}; x < CHUNK_SIZE; x++) {
-			for (int y{}; y < CHUNK_SIZE; y++) {
-				for (int z{}; z < CHUNK_SIZE; z++) {
-					const Block currentBlock = (Block)pair.second.blocks[x][y][z];
-					if (currentBlock == AIR) {
-						continue;
-					}
-
-					const int minBrigtnessDistance = 20;
-					const float maxWhite = 0.5f; // lower is more white
-
-					// assuming that there is a block at 34 0 0
-					// 1 0 0 chunk position
-					const Vec3Int chunkWorldPos = pair.first;
-					// 2 0 0 block position in chunk
-					const Vec3Int blockChunkPos = Vec3Int{x, y, z};
-
-					// chunk world pos * size of chunk + block chunk pos * pixel size of block
-					// 	     1 0 0 * 32 	   + 2 0 0   	     * 64 = 2176 0 0
-					// 1 0 0 * 32 + 2 0 0 * 64 = 2176 0 0
-					const Vec3Int worldPixelPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos) * BLOCK_SIZE;
-					const Vec3Int worldPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos);
-
-					// culling
-					if (getBlock(worldPos + Vec3Int(0, 1, 0)) != AIR) {
-						continue;
-					}
-
-					// draw white background tile
-					Vector3 whiteBackgroundPos = worldPixelPos.toVec3();
-					whiteBackgroundPos.y -= 0.001;
-					drawRect3D(whiteBackgroundPos, WHITE);
-
-					// compute brightness and transparency of the tile
-					float brightness = (worldPos.y - player.pos.y); 
-					brightness /= minBrigtnessDistance; //(minBrigtnessDistance * 0.01);
-
-					float colorAlpha = 1;
-					if (brightness > 0)
-						colorAlpha = 1 - brightness;
-					if (colorAlpha < maxWhite)
-						colorAlpha = maxWhite;
-
-					Color c = ColorAlpha(ColorBrightness(WHITE, brightness), colorAlpha);
-					drawTexture3D(useTexture(getEnumName(currentBlock) + ".png"), worldPixelPos.toVec3(), c);
-				}
+		FOR_XYZ(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE){
+			const Block currentBlock = (Block)pair.second.blocks[x][y][z];
+			if (currentBlock == AIR) {
+				continue;
 			}
+
+			const int minBrigtnessDistance = 20;
+			const float maxWhite = 0.5f; // lower is more white
+
+			// assuming that there is a block at 34 0 0
+			// 1 0 0 chunk position
+			const Vec3Int chunkWorldPos = pair.first;
+			// 2 0 0 block position in chunk
+			const Vec3Int blockChunkPos = Vec3Int{x, y, z};
+
+			// chunk world pos * size of chunk + block chunk pos * pixel size of block
+			// 	     1 0 0 * 32 	   + 2 0 0   	     * 64 = 2176 0 0
+			// 1 0 0 * 32 + 2 0 0 * 64 = 2176 0 0
+			const Vec3Int worldPixelPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos) * BLOCK_SIZE;
+			const Vec3Int worldPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos);
+
+			// culling
+			if (getBlock(worldPos + Vec3Int(0, 1, 0)) != AIR) {
+				continue;
+			}
+
+			// draw white background tile
+			Vector3 whiteBackgroundPos = worldPixelPos.toVec3();
+			whiteBackgroundPos.y -= 0.001;
+			drawRect3D(whiteBackgroundPos, WHITE);
+
+			// compute brightness and transparency of the tile
+			float brightness = (worldPos.y - player.pos.y); 
+			brightness /= minBrigtnessDistance; //(minBrigtnessDistance * 0.01);
+
+			float colorAlpha = 1;
+			if (brightness > 0)
+				colorAlpha = 1 - brightness;
+			if (colorAlpha < maxWhite)
+				colorAlpha = maxWhite;
+
+			Color c = ColorAlpha(ColorBrightness(WHITE, brightness), colorAlpha);
+			drawTexture3D(useTexture(getEnumName(currentBlock) + ".png"), worldPixelPos.toVec3(), c);
 		}
 	}
 }
