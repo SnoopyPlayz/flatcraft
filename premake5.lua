@@ -59,5 +59,5 @@ project "flatcraft"
       defines { "NDEBUG" }
       optimize "Speed"
       symbols "Off"
-      linktimeoptimization "On"
+      --linktimeoptimization "On"
       linkoptions { "-s" }
