@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
 		debugMap();
 		EndMode2D();
 		player.updateUI();
-		debug.addMessage("dirty : %G " + std::to_string(displayedFps));
+		debug.addMessage("fps : %G " + std::to_string(displayedFps));
 		debug.draw();
 		EndDrawing();
 	}
