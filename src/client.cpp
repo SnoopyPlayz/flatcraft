@@ -74,6 +74,9 @@ void drawClients(){
 
 				p.pos += player.player.velocity;
 				p.pos = Vector3Lerp(p.pos, player.player.pos, lerpAmount);
+				if (player.player.velocity == (Vector3){0,0,0}) {
+					p.pos = player.player.pos;
+				}
 				continue;
 			}
 		}

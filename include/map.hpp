@@ -45,12 +45,14 @@ void markShadowAffectedChunksChanged(Vec3Int chunkPos);
 std::optional<Vec3Int> findTopBlock(int x, int y);
 
 #define FOR_XYZ(x1,y1,z1) \
-	for (int x{}; x < x1; ++x)  \
-		for (int y{}; y < y1; ++y) \
-			for (int z{}; z < z1; ++z)
+	for (int x{}; x < (x1); ++x)  \
+		for (int y{}; y < (y1); ++y) \
+			for (int z{}; z < (z1); ++z)
+
+#define RANGE(radius) \
+	for (int x = -(radius); x <= (radius); ++x) \
+		for (int y = -(radius); y <= (radius); ++y) \
+			for (int z = -(radius); z <= (radius); ++z) \
 
 #define RADUIS(radius) \
-	for (int x = -radius; x <= radius; ++x) \
-		for (int y = -radius; y <= radius; ++y) \
-			for (int z = -radius; z <= radius; ++z) \
-
+	RANGE(radius)
