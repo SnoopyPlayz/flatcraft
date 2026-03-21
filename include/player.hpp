@@ -21,7 +21,6 @@ class Player{
 		uint8_t inventory[PLAYER_INVENTORY_SIZE];
 		int health = 20;
 	private:
-		bool grounded = false;
 		void inventoryUpdate();
 		void updateMovement();
 		void updateBlockPlacingBreaking();

@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cstdlib>
 #include <raylib.h>
 #include <raymath.h>
 #include <string>
@@ -10,13 +9,16 @@
 #include "player.hpp"
 #include "network.hpp"
 #include "vector.hpp"
-#include "physics.hpp"
 #include <iostream>
 
 Player player;
 std::vector<BlockUpdatePacket> blockUpdates;
 
 bool inventoryOpen = false;
+
+bool AABBcolBox(int x, int y, int size, int xb, int yb, int sizeb){
+	return (x < xb + sizeb && x + size > xb && y < yb + sizeb && y + size > yb);
+}
 
 int in = 0;
 void Player::inventoryUpdate(){
@@ -102,88 +104,20 @@ void Player::updateUI(){
 void Player::updateMovement(){
 	const float playerRunningSpeed = 0.18;
 	const float playerSpeed = IsKeyDown(KEY_LEFT_SHIFT) ? playerRunningSpeed : 0.12;
-	const Vector3 playerSize = {1.0f, 1.0f, 1.0f};
-	const Vector3 blockSize = {1.0f, 1.0f, 1.0f};
-	const int collisionRange = 2;
 
-	Vector3 movementInput = {0.0f, 0.0f, 0.0f};
-	movementInput.x = static_cast<float>(IsKeyDown(KEY_D) - IsKeyDown(KEY_A));
-	movementInput.z = static_cast<float>(IsKeyDown(KEY_S) - IsKeyDown(KEY_W));
+	Vector3 vel = {0, 0, 0};
 
-	if (Vector3LengthSqr(movementInput) > 0.0f) {
-		movementInput = Vector3Normalize(movementInput);
-	}
+	vel.x = IsKeyDown(KEY_D) - IsKeyDown(KEY_A);
+	vel.y = IsKeyDown(KEY_SPACE) - IsKeyDown(KEY_LEFT_CONTROL);
+	vel.z = IsKeyDown(KEY_S) - IsKeyDown(KEY_W);
 
-	velocity.x = Lerp(velocity.x, movementInput.x * playerSpeed, PLAYER_ACCELERATION_SPEED);
-	velocity.z = Lerp(velocity.z, movementInput.z * playerSpeed, PLAYER_ACCELERATION_SPEED);
-
-	if (grounded && IsKeyPressed(KEY_SPACE)) {
-		velocity.y = JUMP_VELOCITY;
-		grounded = false;
-	} else {
-		velocity.y = applyGravity(velocity.y);
-	}
-
-	auto resolveAxisCollisions = [&](int axis) {
-		Vector3 playerCenter = pos + (playerSize * 0.5f);
-		const Vec3Int centerBlock = {
-			static_cast<int32_t>(std::floor(playerCenter.x)),
-			static_cast<int32_t>(std::floor(playerCenter.y)),
-			static_cast<int32_t>(std::floor(playerCenter.z))
-		};
-
-		RANGE(collisionRange) {
-			const Vec3Int blockPos = centerBlock + Vec3Int{x, y, z};
-			if (getBlock(blockPos) == AIR) {
-				continue;
-			}
-
-			const Vector3 blockCenter = blockPos.toVec3() + (blockSize * 0.5f);
-			const float axisResponse = AABBcollisionResponseAxis(playerCenter, playerSize, blockCenter, blockSize, axis);
-			if (axisResponse == 0.0f) {
-				continue;
-			}
-
-			if (axis == 0) {
-				pos.x -= axisResponse;
-				playerCenter.x -= axisResponse;
-				velocity.x = 0.0f;
-			} else if (axis == 1) {
-				pos.y += abs(axisResponse);
-				playerCenter.y += abs(axisResponse);
-				if (axisResponse < 0.0f && velocity.y <= 0.0f) {
-					grounded = true;
-				}
-				velocity.y = 0.0f;
-			} else {
-				pos.z -= axisResponse;
-				playerCenter.z -= axisResponse;
-				velocity.z = 0.0f;
-			}
-		}
-	};
-
-	grounded = false;
-	pos.y += velocity.y;
-	resolveAxisCollisions(1);
-
-	pos.x += velocity.x;
-	resolveAxisCollisions(0);
-
-	pos.z += velocity.z;
-	resolveAxisCollisions(2);
+	Vector3 targetVelocity = Vector3Normalize(vel) * playerSpeed;
+	velocity = Vector3Lerp(velocity, targetVelocity, PLAYER_ACCELERATION_SPEED);
+	
+	pos += velocity;
 }
 
 void Player::updateBlockPlacingBreaking(){
-	const Vector3 playerSize = {1.0f, 1.0f, 1.0f};
-	const Vector3 blockSize = {1.0f, 1.0f, 1.0f};
-	auto canPlaceAt = [&](const Vec3Int& blockPos) {
-		const Vector3 playerCenter = pos + (playerSize * 0.5f);
-		const Vector3 blockCenter = blockPos.toVec3() + (blockSize * 0.5f);
-		return !AABBcolBox(playerCenter - (playerSize * 0.5f), playerSize,
-			blockCenter - (blockSize * 0.5f), blockSize);
-	};
-
 	// Select block
 	for (int key = KEY_ZERO; key <= KEY_NINE; key++) {
 		if (IsKeyPressed(key)) {
@@ -205,18 +139,12 @@ void Player::updateBlockPlacingBreaking(){
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
 		//std::lock_guard<std::mutex> lock(blockUpdateMutex);
 		if (topBlock.has_value()) {
-			const Vec3Int targetPos = {x, topBlock->y + 1, z};
-			if (canPlaceAt(targetPos)) {
-				setBlock(targetPos, selectedBlock);
-				blockUpdates.push_back({targetPos, selectedBlock});
-			}
+			setBlock({x, topBlock->y + 1, z}, selectedBlock);
+			blockUpdates.push_back({{x, topBlock->y + 1, z}, selectedBlock});
 
 		} else {
-			const Vec3Int targetPos = {x, 0, z};
-			if (canPlaceAt(targetPos)) {
-				setBlock(targetPos, selectedBlock);
-				blockUpdates.push_back({targetPos, selectedBlock});
-			}
+			setBlock({x, 0, z}, selectedBlock);
+			blockUpdates.push_back({{x, 0, z}, selectedBlock});
 		}
 	}
 
@@ -255,7 +183,8 @@ void Player::update(){
 	updateMovement();
 	updateBlockPlacingBreaking();
 	// Draw player
-	drawTexture3D(useTexture("player.png"), pos * BLOCK_SIZE, WHITE);
+	const Vector3 playerCenter = Vector3AddValue(pos, -0.5);
+	drawTexture3D(useTexture("player.png"), playerCenter * BLOCK_SIZE, WHITE);
 
 	debug.addMessage("Player pos: %R x: " + std::to_string(pos.x) + " %G Y: " + std::to_string(pos.y) + " %B Z: " + std::to_string(pos.z));
 }

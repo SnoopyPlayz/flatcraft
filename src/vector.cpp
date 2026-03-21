@@ -64,5 +64,5 @@ Vector3 Vec3Int::toVec3() const{
 }
 
 Vec3Int toVec3Int(const Vector3& v){
-	return {static_cast<int>(v.x), static_cast<int>(v.y), static_cast<int>(v.z)};
+	return {static_cast<int>(std::floor(v.x)), static_cast<int>(std::floor(v.y)), static_cast<int>(std::floor(v.z))};
 }

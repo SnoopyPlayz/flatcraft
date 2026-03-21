@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <raylib.h>
+#include <iostream>
 
 namespace math {
     int mod(int a, int b);
@@ -23,3 +24,7 @@ struct Vec3Int {
 };
 
 Vec3Int toVec3Int(const Vector3& v);
+
+std::string vector3ToString(auto vec){
+	return std::to_string(vec.x) + " " + std::to_string(vec.y) + " " + std::to_string(vec.z);
+}
