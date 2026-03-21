@@ -1,5 +1,5 @@
 # flatcraft
-top down minecraft made in c++ with [raylib](https://github.com/raysan5/raylib). <br>
+top down minecraft made in **c++** with [raylib](https://github.com/raysan5/raylib). <br>
 
 
 

@@ -203,7 +203,8 @@ void debugMap(){
 	for (const auto& pair : map) {
 		Vec3Int pos = pair.first;
 		if(culling(pos, toVec3Int(player.pos), 1)){
-			drawTextSDF(std::to_string(pos.x) + " " + std::to_string(pos.z), pos.x * CHUNK_SIZE * BLOCK_SIZE, pos.z * CHUNK_SIZE * BLOCK_SIZE, 50, RED);
+			//drawTextSDF(std::to_string(pos.x) + " " + std::to_string(pos.z), pos.x * CHUNK_SIZE * BLOCK_SIZE, pos.z * CHUNK_SIZE * BLOCK_SIZE, 50, RED);
+			drawTextSDF3D(std::to_string(pos.x) + " " + std::to_string(pos.z), pos.x * CHUNK_SIZE * BLOCK_SIZE, pos.z * CHUNK_SIZE * BLOCK_SIZE, 50, RED);
 		}
 	}
 }

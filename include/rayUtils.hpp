@@ -19,13 +19,14 @@ void drawTextSDF(const std::string& text, float posX, float posY, int fontSize, 
 void drawTexture3D(Texture2D texture, Vector3 vec, Color tint);
 void drawRect3D(Vector3 pos, Color tint);
 void unloadShaders();
-Shader useShader(const std::string& Path);
+Shader useShader(const std::string& Path, const std::string& fragmentPath);
 void drawTexture3DRot(Texture2D texture, Vector3 pos, Color tint, float rotation);
 std::string stringToLower(std::string s);
-
+void drawTextSDF3D(const std::string& text, float posX, float posY, int fontSize, Color color);
 
 void drawAllTextures3D();
 void drawTexture3DInstances(const std::vector<Texture2DInstance>& instances);
+Vector2 getWorldRenderOffset();
 
 std::string getEnumName(auto enumVal){
 	auto enumName = magic_enum::enum_name(enumVal);

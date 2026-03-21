@@ -15,7 +15,7 @@ class Player{
 	public:
 		void updateUI();
 		void update();
-		Vector3 pos = {0, 11, 0};
+		Vector3 pos = {0, 20, 0};
 		Block selectedBlock = GRASS;
 		Vector3 velocity = {0, 0, 0};
 		uint8_t inventory[PLAYER_INVENTORY_SIZE];

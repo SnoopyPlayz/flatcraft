@@ -115,105 +115,13 @@ void Player::updateMovement(){
 	debug.addMessage("velocity: " + vector3ToString(velocity));
 
 	pos.x += velocity.x;
-	// player original pos is x center z center y feet
-	Vector3 playerTopLeft = pos;
-	playerTopLeft.x -= 0.5;
-	playerTopLeft.y += 1.0;
-	playerTopLeft.z -= 0.5;
+	pos.x = physicsReaction(pos, velocity.x, 0);
 
-	Vec3Int pTopLeft = toVec3Int(playerTopLeft);
-	RADUIS(2){
-		Vec3Int blockPos = pTopLeft + (Vec3Int){x,y,z};
-		if (getBlock(blockPos) == AIR) {
-			continue;
-		}
-		if (AABBColBox3d(playerTopLeft, {1,1,1}, blockPos.toVec3(), {1,1,1})){
-			pos.x -= velocity.x;
-			Vec3Int posx = toVec3Int(pos);
-			posx.y += 1;
-
-			if (getBlock(posx) != AIR) {
-				posx.x += 1;
-				if (getBlock(posx) == AIR) {
-					if (playerTopLeft.x > blockPos.toVec3().x) 
-						pos.x += 0.5;
-				}
-				posx.x -= 2;
-				if (getBlock(posx) == AIR) {
-					if (playerTopLeft.x < blockPos.toVec3().x) 
-						pos.x -= 0.5;
-				}
-			}
-			pos.x = std::floor(pos.x) + 0.5;
-		}
-	}
 	pos.z += velocity.z;
-
-	playerTopLeft = pos;
-	playerTopLeft.x -= 0.5;
-	playerTopLeft.y += 1.0;
-	playerTopLeft.z -= 0.5;
-
-	pTopLeft = toVec3Int(playerTopLeft);
-	RADUIS(2){
-		Vec3Int blockPos = pTopLeft + (Vec3Int){x,y,z};
-		if (getBlock(blockPos) == AIR) {
-			continue;
-		}
-		if (AABBColBox3d(playerTopLeft, {1,1,1}, blockPos.toVec3(), {1,1,1})){
-			pos.z -= velocity.z;
-			Vec3Int posx = toVec3Int(pos);
-			posx.y += 1;
-
-			if (getBlock(posx) != AIR) {
-				posx.z += 1;
-				if (getBlock(posx) == AIR) {
-					if (playerTopLeft.z > blockPos.toVec3().z) 
-						pos.x += 0.5;
-				}
-				posx.z -= 2;
-				if (getBlock(posx) == AIR) {
-					if (playerTopLeft.z < blockPos.toVec3().z) 
-						pos.x -= 0.5;
-				}
-			}
-			pos.z = std::floor(pos.z) + 0.5;
-		}
-	}
+	pos.z = physicsReaction(pos, velocity.z, 2);
 
 	pos.y += velocity.y;
-
-	playerTopLeft = pos;
-	playerTopLeft.x -= 0.5;
-	playerTopLeft.y += 1.0;
-	playerTopLeft.z -= 0.5;
-
-	pTopLeft = toVec3Int(playerTopLeft);
-	RADUIS(2){
-		Vec3Int blockPos = pTopLeft + (Vec3Int){x,y,z};
-		if (getBlock(blockPos) == AIR) {
-			continue;
-		}
-		if (AABBColBox3d(playerTopLeft, {1,1,1}, blockPos.toVec3(), {1,1,1})){
-			pos.y -= velocity.y;
-			Vec3Int posx = toVec3Int(pos);
-			posx.y += 1;
-
-			if (getBlock(posx) != AIR) {
-				posx.y += 1;
-				if (getBlock(posx) == AIR) {
-					if (playerTopLeft.y > blockPos.toVec3().y) 
-						pos.y += 0.5;
-				}
-				posx.y -= 2;
-				if (getBlock(posx) == AIR) {
-					if (playerTopLeft.y < blockPos.toVec3().y) 
-						pos.y -= 0.5;
-				}
-			}
-			pos.y = std::floor(pos.y);
-		}
-	}
+	pos.y = physicsReaction(pos, velocity.y, 1);
 }
 
 void Player::updateBlockPlacingBreaking(){
@@ -226,6 +134,9 @@ void Player::updateBlockPlacingBreaking(){
 
 	Vector2 mouseScreen = GetMousePosition();
 	Vector2 m = GetScreenToWorld2D(mouseScreen, playerCamera.camera);
+	Vector2 worldOffset = getWorldRenderOffset();
+	m.x += worldOffset.x;
+	m.y += worldOffset.y;
 	int x = std::floor(m.x / (float)BLOCK_SIZE);
 	int z = std::floor(m.y / (float)BLOCK_SIZE);
 

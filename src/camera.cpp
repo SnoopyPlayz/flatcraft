@@ -14,8 +14,6 @@ PlayerCamera::PlayerCamera(){
 }
 
 void PlayerCamera::update(){
-	camera.target.x = player.pos.x * BLOCK_SIZE;
-	camera.target.y = player.pos.z * BLOCK_SIZE;
-	camera.offset.x = GetScreenWidth() * 0.5;// - BLOCK_SIZE * 0.5;
-	camera.offset.y = GetScreenHeight() * 0.5;// - BLOCK_SIZE * 0.5;
+	camera.offset.x = GetScreenWidth() * 0.5;
+	camera.offset.y = GetScreenHeight() * 0.5;
 }

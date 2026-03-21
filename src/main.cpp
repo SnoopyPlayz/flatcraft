@@ -11,40 +11,48 @@
 #include <string>
 #include <thread>
 
-int main(int argc, char *argv[]) {
+struct WindowArgs {
 	bool useInternalServer = true;
 	std::string networkHost = "localhost";
 	uint16_t networkPort = 1236;
 	bool hasWindowPos = false;
 	int windowPosX = 0;
 	int windowPosY = 0;
+};
 
+WindowArgs parseWindowArgs(int argc, char *argv[]) {
+	WindowArgs args;
 	for (int i = 1; i < argc; ++i) {
 		std::string arg(argv[i]);
 		if (arg.starts_with("windowPos") && i + 2 < argc) {
-			windowPosX = std::stoi(argv[++i]);
-			windowPosY = std::stoi(argv[++i]);
-			hasWindowPos = true;
+			args.windowPosX = std::stoi(argv[++i]);
+			args.windowPosY = std::stoi(argv[++i]);
+			args.hasWindowPos = true;
 			continue;
 		}
 		if (arg == "--join" && i + 1 < argc) {
-			useInternalServer = false;
-			networkHost = argv[++i];
+			args.useInternalServer = false;
+			args.networkHost = argv[++i];
 			if (i + 1 < argc) {
 				std::string maybePort(argv[i + 1]);
 				if (!maybePort.starts_with("--") && !maybePort.starts_with("windowPos")) {
-					networkPort = static_cast<uint16_t>(std::stoi(maybePort));
+					args.networkPort = static_cast<uint16_t>(std::stoi(maybePort));
 					++i;
 				}
 			}
 		}
 	}
+	return args;
+}
 
-	configureNetwork(useInternalServer, networkHost, networkPort);
+int main(int argc, char *argv[]) {
+	WindowArgs args = parseWindowArgs(argc, argv);
+
+	configureNetwork(args.useInternalServer, args.networkHost, args.networkPort);
 	initNetwork();
 	//SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 	InitWindow(1280, 720, "flatCraft");
-	if (hasWindowPos) SetWindowPosition(1920 + windowPosX, windowPosY);
+	if (args.hasWindowPos) SetWindowPosition(1920 + args.windowPosX, args.windowPosY);
 	setAndLoadFont("Roboto-VariableFont_wdth,wght.ttf");
 	createShadowTexture();
 

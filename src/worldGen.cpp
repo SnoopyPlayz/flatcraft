@@ -27,7 +27,7 @@ void genChunk(Vec3Int chunkPos){
 
 	for(int x = worldPos.x; x < worldPos.x + CHUNK_SIZE; x++){
 		for(int z = worldPos.z; z < worldPos.z + CHUNK_SIZE; z++){
-			int height = (int)((noise.GetNoise((float)x,(float)z) + 1) * 10);
+			int height = (int)((noise.GetNoise((float)x,(float)z) + 5) * 4);
 
 			if(height < worldPos.y || height >= worldPos.y + CHUNK_SIZE){
 				continue;

@@ -7,6 +7,7 @@
 #include <vector>
 #include "rayUtils.hpp"
 #include <map.hpp>
+#include <player.hpp>
 
 std::string absolutePath = "res/"; // absolutePath + fullPath + givenPath
 std::map<std::string, Texture2D> textureMap;
@@ -39,14 +40,16 @@ void unloadShaders(){
 	}
 }
 
-Shader useShader(const std::string& Path){
+Shader useShader(const std::string& Path, const std::string& fragmentPath){
 	std::string fullPath = absolutePath + Path;
+	std::string fragFullPath = absolutePath + fragmentPath;
 
-	if (auto search = shaderMap.find(fullPath); search != shaderMap.end()){
+	if (auto search = shaderMap.find(fullPath + fragFullPath); search != shaderMap.end()){
 		return search->second;
 	}else {
-		Shader shader = LoadShader(0, fullPath.c_str());
-		shaderMap.insert({fullPath, shader});
+		Shader shader = LoadShader(Path == "" ? 0 : fullPath.c_str()
+					, fragmentPath == "" ? 0 : fragFullPath.c_str());
+		shaderMap.insert({fullPath + fragFullPath, shader});
 		return shader;
 	}
 }
@@ -89,7 +92,18 @@ void setAndLoadFont(const std::string& Path){
 }
 
 void drawTextSDF(const std::string& text, float posX, float posY, int fontSize, Color color){
-	BeginShaderMode(useShader("shaders/sdf.fs"));
+	BeginShaderMode(useShader("","shaders/sdf.fs"));
+	DrawTextEx(fontSDF, text.c_str(), {posX, posY}, fontSize, 0, color);
+	EndShaderMode();
+}
+
+void drawTextSDF3D(const std::string& text, float posX, float posY, int fontSize, Color color){
+	Shader worldShader = useShader("shaders/unussed.vs", "shaders/sdf.fs");
+	int worldOffsetLoc = GetShaderLocation(worldShader, "worldOffset");
+	Vector2 worldOffset = getWorldRenderOffset();
+
+	BeginShaderMode(worldShader);
+	SetShaderValue(worldShader, worldOffsetLoc, &worldOffset, SHADER_UNIFORM_VEC2);
 	DrawTextEx(fontSDF, text.c_str(), {posX, posY}, fontSize, 0, color);
 	EndShaderMode();
 }
@@ -127,6 +141,13 @@ void drawTexture3DInstances(const std::vector<Texture2DInstance>& instances){
 }
 
 void drawAllTextures3D(){
+	Shader worldShader = useShader("shaders/unussed.vs", "");
+	int worldOffsetLoc = GetShaderLocation(worldShader, "worldOffset");
+	Vector2 worldOffset = getWorldRenderOffset();
+
+	BeginShaderMode(worldShader);
+	SetShaderValue(worldShader, worldOffsetLoc, &worldOffset, SHADER_UNIFORM_VEC2);
+
 	std::sort(vertices.begin(), vertices.end(), [](const auto& a, const auto& b) {
 		return (a.position.y < b.position.y);
 	});
@@ -139,4 +160,9 @@ void drawAllTextures3D(){
 		}
 	}
 	vertices.clear();
+	EndShaderMode();
+}
+
+Vector2 getWorldRenderOffset() {
+	return {player.pos.x * BLOCK_SIZE, player.pos.z * BLOCK_SIZE};
 }
