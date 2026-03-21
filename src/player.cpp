@@ -99,6 +99,7 @@ void Player::updateUI(){
 	inventoryUpdate();
 }
 
+
 void Player::updateMovement(){
 	const float playerRunningSpeed = 0.18;
 	const float playerSpeed = IsKeyDown(KEY_LEFT_SHIFT) ? playerRunningSpeed : 0.12;
@@ -111,9 +112,9 @@ void Player::updateMovement(){
 
 	Vector3 targetVelocity = Vector3Normalize(vel) * playerSpeed;
 	velocity = Vector3Lerp(velocity, targetVelocity, PLAYER_ACCELERATION_SPEED);
-	
-	pos += velocity;
+	debug.addMessage("velocity: " + vector3ToString(velocity));
 
+	pos.x += velocity.x;
 	// player original pos is x center z center y feet
 	Vector3 playerTopLeft = pos;
 	playerTopLeft.x -= 0.5;
@@ -127,7 +128,90 @@ void Player::updateMovement(){
 			continue;
 		}
 		if (AABBColBox3d(playerTopLeft, {1,1,1}, blockPos.toVec3(), {1,1,1})){
-			debug.addMessage("cos");
+			pos.x -= velocity.x;
+			Vec3Int posx = toVec3Int(pos);
+			posx.y += 1;
+
+			if (getBlock(posx) != AIR) {
+				posx.x += 1;
+				if (getBlock(posx) == AIR) {
+					if (playerTopLeft.x > blockPos.toVec3().x) 
+						pos.x += 0.5;
+				}
+				posx.x -= 2;
+				if (getBlock(posx) == AIR) {
+					if (playerTopLeft.x < blockPos.toVec3().x) 
+						pos.x -= 0.5;
+				}
+			}
+			pos.x = std::floor(pos.x) + 0.5;
+		}
+	}
+	pos.z += velocity.z;
+
+	playerTopLeft = pos;
+	playerTopLeft.x -= 0.5;
+	playerTopLeft.y += 1.0;
+	playerTopLeft.z -= 0.5;
+
+	pTopLeft = toVec3Int(playerTopLeft);
+	RADUIS(2){
+		Vec3Int blockPos = pTopLeft + (Vec3Int){x,y,z};
+		if (getBlock(blockPos) == AIR) {
+			continue;
+		}
+		if (AABBColBox3d(playerTopLeft, {1,1,1}, blockPos.toVec3(), {1,1,1})){
+			pos.z -= velocity.z;
+			Vec3Int posx = toVec3Int(pos);
+			posx.y += 1;
+
+			if (getBlock(posx) != AIR) {
+				posx.z += 1;
+				if (getBlock(posx) == AIR) {
+					if (playerTopLeft.z > blockPos.toVec3().z) 
+						pos.x += 0.5;
+				}
+				posx.z -= 2;
+				if (getBlock(posx) == AIR) {
+					if (playerTopLeft.z < blockPos.toVec3().z) 
+						pos.x -= 0.5;
+				}
+			}
+			pos.z = std::floor(pos.z) + 0.5;
+		}
+	}
+
+	pos.y += velocity.y;
+
+	playerTopLeft = pos;
+	playerTopLeft.x -= 0.5;
+	playerTopLeft.y += 1.0;
+	playerTopLeft.z -= 0.5;
+
+	pTopLeft = toVec3Int(playerTopLeft);
+	RADUIS(2){
+		Vec3Int blockPos = pTopLeft + (Vec3Int){x,y,z};
+		if (getBlock(blockPos) == AIR) {
+			continue;
+		}
+		if (AABBColBox3d(playerTopLeft, {1,1,1}, blockPos.toVec3(), {1,1,1})){
+			pos.y -= velocity.y;
+			Vec3Int posx = toVec3Int(pos);
+			posx.y += 1;
+
+			if (getBlock(posx) != AIR) {
+				posx.y += 1;
+				if (getBlock(posx) == AIR) {
+					if (playerTopLeft.y > blockPos.toVec3().y) 
+						pos.y += 0.5;
+				}
+				posx.y -= 2;
+				if (getBlock(posx) == AIR) {
+					if (playerTopLeft.y < blockPos.toVec3().y) 
+						pos.y -= 0.5;
+				}
+			}
+			pos.y = std::floor(pos.y);
 		}
 	}
 }
@@ -200,6 +284,7 @@ void Player::update(){
 	// Draw player
 	Vector3 playerCenter = pos;
 	playerCenter.x -= 0.5;
+	playerCenter.y += 0.01;
 	playerCenter.z -= 0.5;
 	drawTexture3D(useTexture("player.png"), playerCenter * BLOCK_SIZE, WHITE);
 
