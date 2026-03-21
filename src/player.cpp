@@ -10,15 +10,13 @@
 #include "network.hpp"
 #include "vector.hpp"
 #include <iostream>
+#include "physics.hpp"
 
 Player player;
 std::vector<BlockUpdatePacket> blockUpdates;
 
 bool inventoryOpen = false;
 
-bool AABBcolBox(int x, int y, int size, int xb, int yb, int sizeb){
-	return (x < xb + sizeb && x + size > xb && y < yb + sizeb && y + size > yb);
-}
 
 int in = 0;
 void Player::inventoryUpdate(){
@@ -70,7 +68,7 @@ void Player::inventoryUpdate(){
 		}
 
 		// colision with cursor
-		if (AABBcolBox(pixelPosX,y,BLOCK_SIZE,GetMouseX(),GetMouseY(), 1)){
+		if (AABBColBox2d(pixelPosX,y,BLOCK_SIZE,GetMouseX(),GetMouseY(), 1)){
 			if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && inventory[i] != AIR){
 				selected = true;
 				selectedBlock = (Block)inventory[i];
@@ -115,6 +113,23 @@ void Player::updateMovement(){
 	velocity = Vector3Lerp(velocity, targetVelocity, PLAYER_ACCELERATION_SPEED);
 	
 	pos += velocity;
+
+	// player original pos is x center z center y feet
+	Vector3 playerTopLeft = pos;
+	playerTopLeft.x -= 0.5;
+	playerTopLeft.y += 1.0;
+	playerTopLeft.z -= 0.5;
+
+	Vec3Int pTopLeft = toVec3Int(playerTopLeft);
+	RADUIS(2){
+		Vec3Int blockPos = pTopLeft + (Vec3Int){x,y,z};
+		if (getBlock(blockPos) == AIR) {
+			continue;
+		}
+		if (AABBColBox3d(playerTopLeft, {1,1,1}, blockPos.toVec3(), {1,1,1})){
+			debug.addMessage("cos");
+		}
+	}
 }
 
 void Player::updateBlockPlacingBreaking(){
@@ -183,7 +198,9 @@ void Player::update(){
 	updateMovement();
 	updateBlockPlacingBreaking();
 	// Draw player
-	const Vector3 playerCenter = Vector3AddValue(pos, -0.5);
+	Vector3 playerCenter = pos;
+	playerCenter.x -= 0.5;
+	playerCenter.z -= 0.5;
 	drawTexture3D(useTexture("player.png"), playerCenter * BLOCK_SIZE, WHITE);
 
 	debug.addMessage("Player pos: %R x: " + std::to_string(pos.x) + " %G Y: " + std::to_string(pos.y) + " %B Z: " + std::to_string(pos.z));
