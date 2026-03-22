@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <lz4.h>
 #include "worldGen.hpp"
+#include "item.hpp"
 
 // server globals
 ENetAddress address;
@@ -46,7 +47,7 @@ void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, const std::vec
 }
 
 
-void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, const std::vector<Vec3Int>& peerChunkRequests, const std::vector<BlockUpdatePacket>& blockUpdatesVec) {
+void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, const std::vector<Vec3Int>& peerChunkRequests, const std::vector<BlockUpdatePacket>& blockUpdatesVec, const std::vector<Item>& itemsVec) {
 	std::vector<ChunkData> chunksVec;
 	for (const Vec3Int& chunkPos: peerChunkRequests) {
 		std::cout << "chunk received: " << chunkPos.x << " " << chunkPos.y << " " << chunkPos.z << std::endl;
@@ -58,11 +59,13 @@ void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, const std::vecto
 	}
 	addCompressedVecToPacket(packetBuffer, chunksVec);
 	addVecToPacket(packetBuffer, blockUpdatesVec);
+	addVecToPacket(packetBuffer, itemsVec);
 }
 
 void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients) {
 	static std::unordered_map<ENetPeer *, std::vector<Vec3Int>> chunkRequests;
 	static std::vector<BlockUpdatePacket> blockUpdatesVec;
+	static std::vector<Item> itemsVec;
 	std::vector<PlayerData> playerDataVec;
 	playerDataVec.reserve(clients.size());
 
@@ -87,13 +90,14 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 
 		const auto requestIt = chunkRequests.find(peer);
 		const std::vector<Vec3Int>& peerChunkRequests = requestIt != chunkRequests.end() ? requestIt->second : emptyChunkRequests;
-		addToPacketForEachPeer(packetBuffer, peerChunkRequests, blockUpdatesVec);
+		addToPacketForEachPeer(packetBuffer, peerChunkRequests, blockUpdatesVec, itemsVec);
 
 		ENetPacket* packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
 		enet_peer_send(peer, 0, packet);
 	}
 	chunkRequests.clear();
 	blockUpdatesVec.clear();
+	itemsVec.clear();
 
 	ENetEvent event;
 	while (enet_host_service(server, &event, 0) > 0) {
@@ -114,6 +118,10 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 				it->second = player;
 
 				for (const BlockUpdatePacket& blockUpdate : blockUpdates) {
+					if (blockUpdate.dropItem != AIR) {
+						dropItem(blockUpdate.dropItem, (blockUpdate.pos * BLOCK_SIZE).toVec3());
+						itemsVec.push_back({blockUpdate.dropItem, (blockUpdate.pos * BLOCK_SIZE).toVec3()});
+					}
 					setBlock(blockUpdate.pos, blockUpdate.block);
 					blockUpdatesVec.push_back(blockUpdate);
 				}

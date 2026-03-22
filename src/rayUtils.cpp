@@ -125,22 +125,18 @@ void DrawTextureWithRot(Texture tex, float x, float y, float rot, Color col, flo
 	DrawTexturePro(tex, texSize, posAndSize, (Vector2){scaledTexX * 0.5f, scaledTexY * 0.5f}, rot, col);
 }
 
-void drawTexture3DRot(Texture2D texture, Vector3 pos, Color tint, float rotation = 0, float scale = 1){
-	std::lock_guard<std::mutex> lock(mapMtx);
+void drawTexture3D(Texture2D texture, Vector3 pos, Color tint, float rotation, float scale){
+	std::lock_guard<std::mutex> lock(vertMtx);
 	vertices.push_back({{pos.x, pos.y, pos.z}, texture, tint, rotation, scale});
 }
 
-void drawTexture3D(Texture2D texture, Vector3 pos, Color tint){
-	drawTexture3DRot(texture, pos, tint, 0);
-}
-
 void drawRect3D(Vector3 pos, Color tint){
-	std::lock_guard<std::mutex> lock(mapMtx);
+	std::lock_guard<std::mutex> lock(vertMtx);
 	vertices.push_back({{pos.x, pos.y, pos.z}, std::nullopt, tint, 0});
 }
 
 void drawTexture3DInstances(const std::vector<Texture2DInstance>& instances){
-	std::lock_guard<std::mutex> lock(mapMtx);
+	std::lock_guard<std::mutex> lock(vertMtx);
 	vertices.insert(vertices.end(), instances.begin(), instances.end());
 }
 

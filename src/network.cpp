@@ -54,6 +54,7 @@ static void startSinglePlayerNetworking() {
 void updateNetwork(){
 	startSinglePlayerNetworking();
 	if (networkingStarted) drawClients();
+	if (networkingStarted) updateClients();
 }
 
 void shutdownNetwork() {

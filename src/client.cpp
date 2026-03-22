@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 #include "debug.hpp"
+#include "item.hpp"
 #include "map.hpp"
 #include "network.hpp"
 #include "player.hpp"
@@ -90,6 +91,13 @@ void drawClients(){
 	}
 }
 
+void updateClients(){
+	std::lock_guard<std::mutex> lock(playersMtx);
+	for(PlayerData& player : players){
+		pickUpItems(player.player.pos);
+	}
+}
+
 bool netowrkTick(){
 	ENetEvent event;
 	std::vector<Vec3Int> chunkRequests;
@@ -108,7 +116,10 @@ bool netowrkTick(){
 	std::vector<uint8_t> packetBuffer; // the packet that will be sent
 	addVariableToPacket(packetBuffer, player);
 	addVecToPacket(packetBuffer, blockUpdates);
-	addVecToPacket(packetBuffer, chunkRequests);
+	{
+		std::lock_guard<std::mutex> lock(blockUpdateMutex);
+		addVecToPacket(packetBuffer, chunkRequests);
+	}
 	blockUpdates.clear();
 
 	ENetPacket *packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
@@ -142,6 +153,11 @@ bool netowrkTick(){
 					if (validChunk(blockUpdatePacket.pos / CHUNK_SIZE)) {
 						setBlock(blockUpdatePacket.pos, blockUpdatePacket.block);
 					}
+				}
+
+				std::vector<Item> item = unpackVecFromPacket<Item>(*(event.packet), ptrPos);
+				for (Item i : item) {
+					dropItem(i.b, i.pos);
 				}
 
 				enet_packet_destroy(event.packet);

@@ -14,6 +14,7 @@
 #include "item.hpp"
 
 Player player;
+std::mutex blockUpdateMutex;
 std::vector<BlockUpdatePacket> blockUpdates;
 
 bool inventoryOpen = false;
@@ -148,7 +149,7 @@ void Player::updateBlockPlacingBreaking(){
 	}
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-		//std::lock_guard<std::mutex> lock(blockUpdateMutex);
+		std::lock_guard<std::mutex> lock(blockUpdateMutex);
 		if (topBlock.has_value()) {
 			setBlock({x, topBlock->y + 1, z}, selectedBlock);
 			blockUpdates.push_back({{x, topBlock->y + 1, z}, selectedBlock});
@@ -160,11 +161,12 @@ void Player::updateBlockPlacingBreaking(){
 	}
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-		//std::lock_guard<std::mutex> lock(blockUpdateMutex);
+		std::lock_guard<std::mutex> lock(blockUpdateMutex);
 		if (topBlock.has_value()) {
-			dropItem(getBlock({x, topBlock->y, z}), (Vec3Int){x * BLOCK_SIZE, topBlock->y * BLOCK_SIZE, z * BLOCK_SIZE}.toVec3());
+			//dropItem(getBlock({x, topBlock->y, z}), (Vec3Int){x * BLOCK_SIZE, topBlock->y * BLOCK_SIZE, z * BLOCK_SIZE}.toVec3());
+			Block dropItem = getBlock({x, topBlock->y, z});
 			setBlock({x, topBlock->y, z}, AIR);
-			blockUpdates.push_back({{x, topBlock->y, z}, AIR});
+			blockUpdates.push_back({{x, topBlock->y, z}, AIR, dropItem});
 		} else {
 			setBlock({x, 0, z}, AIR);
 			blockUpdates.push_back({{x, 0, z}, AIR});
@@ -195,12 +197,13 @@ void Player::update(){
 
 	updateMovement();
 	updateBlockPlacingBreaking();
+	pickUpItems();
 	// Draw player
 	Vector3 playerCenter = pos;
 	playerCenter.x -= 0.5;
 	playerCenter.y += 0.01;
 	playerCenter.z -= 0.5;
-	drawTexture3DRot(useTexture("player.png"), playerCenter * BLOCK_SIZE, WHITE, 0, 1.0);
+	drawTexture3D(useTexture("player.png"), playerCenter * BLOCK_SIZE, WHITE, 0, 1.0);
 
 	debug.addMessage("Player pos: " + vector3ToString(pos));
 }
