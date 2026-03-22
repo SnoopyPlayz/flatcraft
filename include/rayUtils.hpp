@@ -11,6 +11,7 @@ struct Texture2DInstance {
 	std::optional<Texture2D> texture;
 	Color tint;
 	float rotation;
+	float scale = 1.0;
 };
 
 Texture2D useTexture(const std::string& Path);
@@ -20,7 +21,7 @@ void drawTexture3D(Texture2D texture, Vector3 vec, Color tint);
 void drawRect3D(Vector3 pos, Color tint);
 void unloadShaders();
 Shader useShader(const std::string& Path, const std::string& fragmentPath);
-void drawTexture3DRot(Texture2D texture, Vector3 pos, Color tint, float rotation);
+void drawTexture3DRot(Texture2D texture, Vector3 pos, Color tint, float rotation, float scale);
 std::string stringToLower(std::string s);
 void drawTextSDF3D(const std::string& text, float posX, float posY, int fontSize, Color color);
 

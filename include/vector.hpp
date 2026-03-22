@@ -26,5 +26,5 @@ struct Vec3Int {
 Vec3Int toVec3Int(const Vector3& v);
 
 std::string vector3ToString(auto vec){
-	return std::to_string(vec.x) + " " + std::to_string(vec.y) + " " + std::to_string(vec.z);
+	return "%R" + std::to_string(vec.x) + "%G " + std::to_string(vec.y) + "%B " + std::to_string(vec.z);
 }

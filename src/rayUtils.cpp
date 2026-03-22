@@ -111,19 +111,23 @@ void drawTextSDF3D(const std::string& text, float posX, float posY, int fontSize
 std::vector<Texture2DInstance> vertices;
 std::mutex vertMtx;
 
-void DrawTextureWithRot(Texture tex, float x, float y, float rot, Color col){
+void DrawTextureWithRot(Texture tex, float x, float y, float rot, Color col, float scale = 1){
 	float texX = tex.width;
 	float texY = tex.height;
+	float scaledTexX = texX * scale;
+	float scaledTexY = texY * scale;
+	float centerX = x + texX * 0.5f;
+	float centerY = y + texY * 0.5f;
 
-	struct Rectangle posAndSize= (Rectangle){x + texX / 2, y + texY / 2, texX, texY};
+	struct Rectangle posAndSize = (Rectangle){centerX, centerY, scaledTexX, scaledTexY};
 	struct Rectangle texSize = (Rectangle){0, 0, texX, texY};
 
-	DrawTexturePro(tex, texSize, posAndSize, (Vector2){(float)texX / 2, (float)texY / 2}, rot, col);
+	DrawTexturePro(tex, texSize, posAndSize, (Vector2){scaledTexX * 0.5f, scaledTexY * 0.5f}, rot, col);
 }
 
-void drawTexture3DRot(Texture2D texture, Vector3 pos, Color tint, float rotation){
+void drawTexture3DRot(Texture2D texture, Vector3 pos, Color tint, float rotation = 0, float scale = 1){
 	std::lock_guard<std::mutex> lock(mapMtx);
-	vertices.push_back({{pos.x, pos.y, pos.z}, texture, tint, rotation});
+	vertices.push_back({{pos.x, pos.y, pos.z}, texture, tint, rotation, scale});
 }
 
 void drawTexture3D(Texture2D texture, Vector3 pos, Color tint){
@@ -154,7 +158,8 @@ void drawAllTextures3D(){
 
 	for (const Texture2DInstance& tex: vertices) {
 		if (tex.texture.has_value()) {
-			DrawTextureWithRot(tex.texture.value(), tex.position.x, tex.position.z, tex.rotation, tex.tint);
+			DrawTextureWithRot(tex.texture.value(), tex.position.x, tex.position.z, tex.rotation, tex.tint, tex.scale);
+			//DrawTextureEx(tex.texture.value(), {tex.position.x, tex.position.z}, tex.rotation, tex.scale, tex.tint);
 		}else{
 			DrawRectangle(tex.position.x, tex.position.z, BLOCK_SIZE, BLOCK_SIZE, tex.tint);
 		}

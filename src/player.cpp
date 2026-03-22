@@ -11,6 +11,7 @@
 #include "vector.hpp"
 #include <iostream>
 #include "physics.hpp"
+#include "item.hpp"
 
 Player player;
 std::vector<BlockUpdatePacket> blockUpdates;
@@ -161,12 +162,14 @@ void Player::updateBlockPlacingBreaking(){
 	if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
 		//std::lock_guard<std::mutex> lock(blockUpdateMutex);
 		if (topBlock.has_value()) {
+			dropItem(getBlock({x, topBlock->y, z}), (Vec3Int){x * BLOCK_SIZE, topBlock->y * BLOCK_SIZE, z * BLOCK_SIZE}.toVec3());
 			setBlock({x, topBlock->y, z}, AIR);
 			blockUpdates.push_back({{x, topBlock->y, z}, AIR});
 		} else {
 			setBlock({x, 0, z}, AIR);
 			blockUpdates.push_back({{x, 0, z}, AIR});
 		}
+		
 	}
 
 	debug.addMessage("cursor pos: %R x: " + std::to_string(x) + " %G Y: " 
@@ -197,7 +200,7 @@ void Player::update(){
 	playerCenter.x -= 0.5;
 	playerCenter.y += 0.01;
 	playerCenter.z -= 0.5;
-	drawTexture3D(useTexture("player.png"), playerCenter * BLOCK_SIZE, WHITE);
+	drawTexture3DRot(useTexture("player.png"), playerCenter * BLOCK_SIZE, WHITE, 0, 1.0);
 
-	debug.addMessage("Player pos: %R x: " + std::to_string(pos.x) + " %G Y: " + std::to_string(pos.y) + " %B Z: " + std::to_string(pos.z));
+	debug.addMessage("Player pos: " + vector3ToString(pos));
 }

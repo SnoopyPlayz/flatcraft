@@ -36,7 +36,7 @@ static auto &vec3Axis(auto &v, int axis) {
 	return v.z;
 }
 
-float physicsReaction(Vector3 &pos, float vel, int axis){
+float physicsReaction(Vector3 &pos, float &vel, int axis){
 	float &posAxis = vec3Axis(pos, axis);
 
 	Vector3 playerTopLeft = pos;
@@ -68,6 +68,7 @@ float physicsReaction(Vector3 &pos, float vel, int axis){
 			}
 
 			posAxis -= vel;
+			vel = 0.0;
 			if (axis == 0) {
 				posAxis = std::floor(posAxis) + 0.5;
 			} else if (axis == 1) {

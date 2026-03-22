@@ -70,7 +70,11 @@ void drawClients(){
 			if (player.peer == oldPlayer.peer){
 				playerExists = true;
 				Player &p = oldPlayer.player;
-				drawTexture3D(useTexture("player.png"), p.pos * BLOCK_SIZE, WHITE);
+				Vector3 drawPos = p.pos ;
+				drawPos.x -= 0.5;
+				drawPos.y += 0.01;
+				drawPos.z -= 0.5;
+				drawTexture3D(useTexture("player.png"), drawPos* BLOCK_SIZE, WHITE);
 
 				p.pos += player.player.velocity;
 				p.pos = Vector3Lerp(p.pos, player.player.pos, lerpAmount);
