@@ -4,9 +4,11 @@
 #define Rectangle ENetRectangle
 #define CloseWindow ENetCloseWindow
 #define ShowCursor ENetShowCursor
+#define DrawTextEx DrawTextEx
 #endif
-#include "enet/enet.h"
+#include <enet/enet.h>
 #ifdef _WIN32
+#undef DrawTextEx
 #undef Rectangle
 #undef CloseWindow
 #undef ShowCursor
