@@ -1,139 +1,175 @@
+#include "map.hpp"
+
 #include <algorithm>
 #include <cassert>
-#include <cstdint>
-#include <cstdio>
-#include <raylib.h>
-#include "debug.hpp"
-#include "vector.hpp"
+#include <iostream>
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
-#include "map.hpp"
-#include "rayUtils.hpp"
-#include "player.hpp"
-#include "vector.hpp"
-#include <raymath.h> 
-#include <iostream>
+#include <FastNoiseLite.h>
+#include <raylib.h>
+#include <raymath.h>
 #include <magic_enum.hpp>
 
-std::map<Vec3Int, Chunk> map;
-std::mutex mapMtx;
+#include "debug.hpp"
+#include "player.hpp"
+#include "rayUtils.hpp"
+#include "vector.hpp"
 
+Map map;
+
+namespace {
 struct CachedShadowChunk {
 	std::vector<Texture2DInstance> vertices;
 	bool ready = false;
 };
 
 std::map<Vec3Int, CachedShadowChunk> mapShadows;
+Texture2D shadowTexture;
+thread_local FastNoiseLite noise;
+thread_local bool noiseReady = false;
 
-void createChunk(Vec3Int pos){
-	std::lock_guard<std::mutex> lock(mapMtx);
-	auto result = map.emplace(std::make_pair(pos, Chunk{}));
+bool culling(Vec3Int pos, Vec3Int center, const int radius) {
+	Vec3Int position = center / CHUNK_SIZE;
+
+	RADUIS(radius) {
+		if (position == pos + Vec3Int{x, y, z}) {
+			return true;
+		}
+	}
+	return false;
+}
+} // namespace
+
+void Map::createChunk(Vec3Int pos) {
+	auto result = chunks.emplace(std::make_pair(pos, Chunk{}));
 	assert(result.second);
 }
 
-void markShadowAffectedChunksChanged(Vec3Int chunkPos){
-	std::lock_guard<std::mutex> lock(mapMtx);
-	RADUIS(1){
-		auto it = map.find(chunkPos + Vec3Int{x, y, z});
-		if (it == map.end()) {
+void Map::markShadowAffectedChunksChanged(Vec3Int chunkPos) {
+	RADUIS(1) {
+		auto it = chunks.find(chunkPos + Vec3Int{x, y, z});
+		if (it == chunks.end()) {
 			continue;
 		}
 		it->second.changed = true;
 	}
 }
 
-Chunk& findChunk(Vec3Int pos){
-	std::lock_guard<std::mutex> lock(mapMtx);
-	auto it = map.find(pos);
-	assert(it != map.end() && "cant find chunk");
-
+Chunk& Map::findChunk(Vec3Int pos) {
+	auto it = chunks.find(pos);
+	assert(it != chunks.end() && "cant find chunk");
 	return it->second;
 }
 
-Chunk& findOrCreateChunk(Vec3Int pos){
-	if (validChunk(pos))
-		return findChunk(pos);
-
-	createChunk(pos);
-	return findChunk(pos);
-}
-
-bool validChunk(Vec3Int pos){
-	std::lock_guard<std::mutex> lock(mapMtx);
-	auto it = map.find(pos);
-	if (it != map.end()) {
-		return true;
+Chunk& Map::findOrCreateChunk(Vec3Int pos) {
+	auto it = chunks.find(pos);
+	if (it == chunks.end()) {
+		auto [newIt, inserted] = chunks.emplace(std::make_pair(pos, Chunk{}));
+		assert(inserted);
+		return newIt->second;
 	}
-	return false;
+	return it->second;
 }
 
-Block getBlock(Vec3Int pos){
+bool Map::validChunk(Vec3Int pos) {
+	return chunks.find(pos) != chunks.end();
+}
+
+Block Map::getBlock(Vec3Int pos) {
 	Vec3Int chunkPos = pos / CHUNK_SIZE;
 	Vec3Int localChunkPos = pos.mod(CHUNK_SIZE);
 
-	if (!validChunk(chunkPos)) {
+	auto it = chunks.find(chunkPos);
+	if (it == chunks.end()) {
 		return AIR;
 	}
-
-	Chunk& c = findChunk(chunkPos);
-	std::lock_guard<std::mutex> lock(mapMtx);
-	return (Block)c.blocks[localChunkPos.x][localChunkPos.y][localChunkPos.z];
+	return static_cast<Block>(it->second.blocks[localChunkPos.x][localChunkPos.y][localChunkPos.z]);
 }
 
-std::optional<Vec3Int> findTopBlock(int x, int y){
-	for(int i = MAX_BLOCK_SEARCH_HEIGHT; i > -MAX_BLOCK_SEARCH_HEIGHT; i--){
-		if (getBlock({x, i, y}) != AIR){
+std::optional<Vec3Int> Map::findTopBlock(int x, int y) {
+	for (int i = MAX_BLOCK_SEARCH_HEIGHT; i > -MAX_BLOCK_SEARCH_HEIGHT; i--) {
+		if (getBlock({x, i, y}) != AIR) {
 			return Vec3Int{x, i, y};
 		}
 	}
 	return std::nullopt;
 }
 
-void setBlock(Vec3Int pos, int block){
+void Map::setBlock(Vec3Int pos, Block block) {
 	Vec3Int chunkPos = pos / CHUNK_SIZE;
 	Vec3Int localChunkPos = pos.mod(CHUNK_SIZE);
 
-	if (!validChunk(chunkPos)) {
-		createChunk(chunkPos);
-	}
+	auto [it, inserted] = chunks.emplace(std::make_pair(chunkPos, Chunk{}));
+	(void)inserted;
+	it->second.blocks[localChunkPos.x][localChunkPos.y][localChunkPos.z] = static_cast<uint8_t>(block);
 
-	std::lock_guard<std::mutex> lock(mapMtx);
-	map[chunkPos].blocks[localChunkPos.x][localChunkPos.y][localChunkPos.z] = block;
-
-	RADUIS(1){
-		auto it = map.find(chunkPos + Vec3Int{x, y, z});
-		if (it == map.end()) {
+	RADUIS(1) {
+		auto affectedIt = chunks.find(chunkPos + Vec3Int{x, y, z});
+		if (affectedIt == chunks.end()) {
 			continue;
 		}
-		it->second.changed = true;
+		affectedIt->second.changed = true;
 	}
 }
 
-Texture2D shadowTexture;
-void createShadowTexture(){
+void Map::worldGenInit() {
+	noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+	noiseReady = true;
+}
+
+void Map::genChunk(Vec3Int chunkPos) {
+	if (!noiseReady) {
+		worldGenInit();
+	}
+
+	Chunk& targetChunk = findOrCreateChunk(chunkPos);
+	if (targetChunk.generated) {
+		return;
+	}
+
+	Vec3Int worldPos = chunkPos * CHUNK_SIZE;
+	for (int x = worldPos.x; x < worldPos.x + CHUNK_SIZE; x++) {
+		for (int z = worldPos.z; z < worldPos.z + CHUNK_SIZE; z++) {
+			int height = static_cast<int>((noise.GetNoise(static_cast<float>(x), static_cast<float>(z)) + 5) * 4);
+
+			if (height < worldPos.y || height >= worldPos.y + CHUNK_SIZE) {
+				continue;
+			}
+
+			Vec3Int topPos{x, height, z};
+			Vec3Int topChunkPos = topPos / CHUNK_SIZE;
+			Chunk& topChunk = findOrCreateChunk(topChunkPos);
+			if (!topChunk.generated) {
+				setBlock(topPos, GRASS);
+			}
+
+			for (int y = height - 1; y > 0; y--) {
+				Vec3Int stonePos{x, y, z};
+				Vec3Int stoneChunkPos = stonePos / CHUNK_SIZE;
+				Chunk& stoneChunk = findOrCreateChunk(stoneChunkPos);
+				if (!stoneChunk.generated) {
+					setBlock(stonePos, STONE);
+				}
+			}
+		}
+	}
+
+	findOrCreateChunk(chunkPos).generated = true;
+}
+
+void Map::createShadowTexture() {
 	Image shadowImage = GenImageGradientLinear(64, 64, 0, ColorAlpha(DARKGRAY, 0.5f), ColorAlpha(WHITE, 0.0f));
 	shadowTexture = LoadTextureFromImage(shadowImage);
 	UnloadImage(shadowImage);
 }
 
-bool culling(Vec3Int pos, Vec3Int center, const int radius){
-	Vec3Int position = center / CHUNK_SIZE;
-
-	RADUIS(radius){
-		if (position == pos + Vec3Int{x,y,z}) {
-			return true;
-		}
-	}
-	return false;
-}
-
-void createShadowsForMap(){
+void Map::createShadowsForMap() {
 	std::vector<Vec3Int> rebuiltChunks;
+	int rebuiltTiles = 0;
 
-	int i = 0;
-	for (const auto& pair : map) {
-		if(!culling(pair.first, toVec3Int(player.pos), 1)){
+	for (const auto& pair : chunks) {
+		if (!culling(pair.first, toVec3Int(player.pos), 1)) {
 			continue;
 		}
 
@@ -145,8 +181,7 @@ void createShadowsForMap(){
 
 		cachedShadowChunk.vertices.clear();
 
-
-		FOR_XYZ(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE){
+		FOR_XYZ(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE) {
 			if (pair.second.blocks[x][y][z] == AIR) {
 				continue;
 			}
@@ -154,69 +189,84 @@ void createShadowsForMap(){
 			const Vec3Int chunkWorldPos = pair.first;
 			const Vec3Int blockChunkPos = Vec3Int{x, y, z};
 			const Vec3Int blockPos = (chunkWorldPos * CHUNK_SIZE) + blockChunkPos;
-			const Vec3Int worldPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos) * BLOCK_SIZE;
+			const Vec3Int worldPos = blockPos * BLOCK_SIZE;
 
 			Vector3 pos = worldPos.toVec3();
 			pos.y = worldPos.y + 0.01f; // epsilon
 
-			if (getBlock(blockPos + Vec3Int{0, 1, 0}) != AIR) {
+			auto hasSolid = [this](const Vec3Int& p) {
+				Vec3Int neighborChunkPos = p / CHUNK_SIZE;
+				Vec3Int neighborLocalPos = p.mod(CHUNK_SIZE);
+				auto it = chunks.find(neighborChunkPos);
+				if (it == chunks.end()) {
+					return false;
+				}
+				return it->second.blocks[neighborLocalPos.x][neighborLocalPos.y][neighborLocalPos.z] != AIR;
+			};
+			if (hasSolid(blockPos + Vec3Int{0, 1, 0})) {
 				continue;
 			}
 
-			i++;
-			if (getBlock(blockPos + Vec3Int{0, 1, -1}) != AIR) {
+			rebuiltTiles++;
+			if (hasSolid(blockPos + Vec3Int{0, 1, -1})) {
 				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 0});
 			}
-			if (getBlock(blockPos + Vec3Int{0, 1, 1}) != AIR) {
+			if (hasSolid(blockPos + Vec3Int{0, 1, 1})) {
 				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 180});
 			}
-			if (getBlock(blockPos + Vec3Int{1, 1, 0}) != AIR) {
+			if (hasSolid(blockPos + Vec3Int{1, 1, 0})) {
 				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 90});
 			}
-			if (getBlock(blockPos + Vec3Int{-1, 1, 0}) != AIR) {
+			if (hasSolid(blockPos + Vec3Int{-1, 1, 0})) {
 				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 270});
-			}	
+			}
 		}
 
 		cachedShadowChunk.ready = true;
 		drawTexture3DInstances(cachedShadowChunk.vertices);
 		rebuiltChunks.push_back(pair.first);
 	}
-	if (i > 0) {
-		std::cout << "rebuilt shadow chunk " + std::to_string(i) << std::endl;
+
+	if (rebuiltTiles > 0) {
+		std::cout << "rebuilt shadow chunk " + std::to_string(rebuiltTiles) << std::endl;
 	}
 
-	std::lock_guard<std::mutex> lock(mapMtx);
 	for (const Vec3Int& chunkPos : rebuiltChunks) {
-		auto it = map.find(chunkPos);
-		if (it == map.end()) {
+		auto it = chunks.find(chunkPos);
+		if (it == chunks.end()) {
 			continue;
 		}
 		it->second.changed = false;
 	}
 }
 
-void debugMap(){
+void Map::debugMap() {
 	if (!debug.enabled) {
 		return;
 	}
-	for (const auto& pair : map) {
+
+	for (const auto& pair : chunks) {
 		Vec3Int pos = pair.first;
-		if(culling(pos, toVec3Int(player.pos), 1)){
-			//drawTextSDF(std::to_string(pos.x) + " " + std::to_string(pos.z), pos.x * CHUNK_SIZE * BLOCK_SIZE, pos.z * CHUNK_SIZE * BLOCK_SIZE, 50, RED);
-			drawTextSDF3D(std::to_string(pos.x) + " " + std::to_string(pos.z), pos.x * CHUNK_SIZE * BLOCK_SIZE, pos.z * CHUNK_SIZE * BLOCK_SIZE, 50, RED);
+		if (culling(pos, toVec3Int(player.pos), 1)) {
+			drawTextSDF3D(
+				std::to_string(pos.x) + " " + std::to_string(pos.z),
+				pos.x * CHUNK_SIZE * BLOCK_SIZE,
+				pos.z * CHUNK_SIZE * BLOCK_SIZE,
+				50,
+				RED
+			);
 		}
 	}
 }
 
-void drawMap(){
-	for (const auto& pair : map) {
-		if(!culling(pair.first, toVec3Int(player.pos), 1)){
+void Map::drawMap() {
+	for (const auto& pair : chunks) {
+		if (!culling(pair.first, toVec3Int(player.pos), 1)) {
 			continue;
 		}
 
-		FOR_XYZ(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE){
-			const Block currentBlock = (Block)pair.second.blocks[x][y][z];
+		FOR_XYZ(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE) {
+			const Block currentBlock = static_cast<Block>(pair.second.blocks[x][y][z]);
 			if (currentBlock == AIR) {
 				continue;
 			}
@@ -224,37 +274,33 @@ void drawMap(){
 			const int minBrigtnessDistance = 20;
 			const float maxWhite = 0.5f; // lower is more white
 
-			// assuming that there is a block at 34 0 0
-			// 1 0 0 chunk position
 			const Vec3Int chunkWorldPos = pair.first;
-			// 2 0 0 block position in chunk
 			const Vec3Int blockChunkPos = Vec3Int{x, y, z};
-
-			// chunk world pos * size of chunk + block chunk pos * pixel size of block
-			// 	     1 0 0 * 32 	   + 2 0 0   	     * 64 = 2176 0 0
-			// 1 0 0 * 32 + 2 0 0 * 64 = 2176 0 0
 			const Vec3Int worldPixelPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos) * BLOCK_SIZE;
-			const Vec3Int worldPos = ((chunkWorldPos * CHUNK_SIZE) + blockChunkPos);
+			const Vec3Int worldPos = (chunkWorldPos * CHUNK_SIZE) + blockChunkPos;
 
-			// culling
-			if (getBlock(worldPos + Vec3Int(0, 1, 0)) != AIR) {
+			Vec3Int topPos = worldPos + Vec3Int(0, 1, 0);
+			Vec3Int topChunkPos = topPos / CHUNK_SIZE;
+			Vec3Int topLocalPos = topPos.mod(CHUNK_SIZE);
+			auto topChunkIt = chunks.find(topChunkPos);
+			if (topChunkIt != chunks.end() && topChunkIt->second.blocks[topLocalPos.x][topLocalPos.y][topLocalPos.z] != AIR) {
 				continue;
 			}
 
-			// draw white background tile
 			Vector3 whiteBackgroundPos = worldPixelPos.toVec3();
-			whiteBackgroundPos.y -= 0.001;
+			whiteBackgroundPos.y -= 0.001f;
 			drawRect3D(whiteBackgroundPos, WHITE);
 
-			// compute brightness and transparency of the tile
-			float brightness = (worldPos.y - player.pos.y); 
-			brightness /= minBrigtnessDistance; //(minBrigtnessDistance * 0.01);
+			float brightness = (worldPos.y - player.pos.y);
+			brightness /= minBrigtnessDistance;
 
 			float colorAlpha = 1;
-			if (brightness > 0)
+			if (brightness > 0) {
 				colorAlpha = 1 - brightness;
-			if (colorAlpha < maxWhite)
+			}
+			if (colorAlpha < maxWhite) {
 				colorAlpha = maxWhite;
+			}
 
 			Color c = ColorAlpha(ColorBrightness(WHITE, brightness), colorAlpha);
 			drawTexture3D(useTexture(getEnumName(currentBlock) + ".png"), worldPixelPos.toVec3(), c);

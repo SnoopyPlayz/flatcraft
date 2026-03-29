@@ -2,10 +2,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <cassert>
+#include <enet/enet.h>
 #include <iostream>
 #include <lz4.h>
 #include <stdio.h>
 #include <stop_token>
+#include <string>
 #include <sys/types.h>
 #include <utility>
 #include <vector>
@@ -23,7 +25,6 @@ ENetHost *client;
 ENetPeer *peer;
 
 std::vector<PlayerData> players;
-std::mutex playersMtx;
 
 template<typename T>
 std::vector<T> unpackCompressedVecFromPacket(const ENetPacket& packet, uint64_t& startPtr) {
@@ -47,7 +48,6 @@ std::vector<T> unpackCompressedVecFromPacket(const ENetPacket& packet, uint64_t&
 void drawClients(){
 	const float lerpAmount = 0.1; // lower = less stutter
 	static std::vector<PlayerData> oldPlayers;
-	std::lock_guard<std::mutex> lock(playersMtx);
 		
 	for (unsigned long i{}; i < oldPlayers.size(); i++) {
 		bool playerExists = false;
@@ -91,21 +91,15 @@ void drawClients(){
 	}
 }
 
-void updateClients(){
-	std::lock_guard<std::mutex> lock(playersMtx);
-	for(PlayerData& player : players){
-		pickUpItems(player.player.pos);
-	}
-}
-
-bool netowrkTick(){
-	ENetEvent event;
+std::vector<uint8_t> packetBuffer; // the packet that will be sent
+std::mutex packetBufferMtx;
+void preparePacket(){
 	std::vector<Vec3Int> chunkRequests;
 
 	const int radius = 1;
 	RADUIS(radius){
 		Vec3Int chunkpos = (toVec3Int(player.pos) / CHUNK_SIZE) + Vec3Int{x, y, z};
-		if (!validChunk(chunkpos)) {
+		if (!map.validChunk(chunkpos)) {
 			//Vector3 debugRect = chunkpos.toVec3() * CHUNK_SIZE * BLOCK_SIZE;
 			//debugRect.y += 10;
 			//drawRect3D(debugRect, RED);
@@ -113,17 +107,66 @@ bool netowrkTick(){
 		}
 	}
 
-	std::vector<uint8_t> packetBuffer; // the packet that will be sent
+	std::lock_guard<std::mutex> lock(packetBufferMtx);
+	if (packetBuffer.size() != 0) {
+		return;
+	}
 	addVariableToPacket(packetBuffer, player);
 	addVecToPacket(packetBuffer, blockUpdates);
-	{
-		std::lock_guard<std::mutex> lock(blockUpdateMutex);
-		addVecToPacket(packetBuffer, chunkRequests);
-	}
 	blockUpdates.clear();
+	addVecToPacket(packetBuffer, chunkRequests);
+}
 
-	ENetPacket *packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
-	enet_peer_send(peer, 0, packet);
+
+std::vector<ENetPacket*> recevedPacketVec;
+std::mutex recevedPacketMtx;
+void processRecevedPacket(){
+	std::lock_guard<std::mutex> lock(recevedPacketMtx);
+	for (ENetPacket* packet : recevedPacketVec) {
+		uint64_t ptrPos = 0;
+
+		players.clear();
+		players = unpackVecFromPacket<PlayerData>(*packet, ptrPos);
+
+		std::vector<ChunkData> chunks = unpackCompressedVecFromPacket<ChunkData>(*packet, ptrPos);
+
+		for (const ChunkData& chunkData : chunks) {
+			map.findOrCreateChunk(chunkData.pos) = std::move(chunkData.chunk);
+			map.markShadowAffectedChunksChanged(chunkData.pos);
+		}
+
+		std::vector<BlockUpdatePacket> blockUpdate = unpackVecFromPacket<BlockUpdatePacket>(*packet, ptrPos);
+		for (const BlockUpdatePacket& blockUpdatePacket : blockUpdate) {
+			if (map.validChunk(blockUpdatePacket.pos / CHUNK_SIZE)) {
+				map.setBlock(blockUpdatePacket.pos, blockUpdatePacket.block);
+			}
+		}
+
+		std::vector<Item> item = unpackVecFromPacket<Item>(*packet, ptrPos);
+		for (Item i : item) {
+			dropItem(i.b, i.pos);
+		}
+
+		enet_packet_destroy(packet);
+	}
+	recevedPacketVec.clear();
+}
+
+void updateClients(){
+	for(PlayerData& player : players){
+		pickUpItems(player.player.pos);
+	}
+}
+
+bool netowrkTick(){
+	ENetEvent event;
+
+	{
+		std::lock_guard<std::mutex> lock(packetBufferMtx);
+		ENetPacket *packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
+		packetBuffer.clear();
+		enet_peer_send(peer, 0, packet);
+	}
 
 	while (enet_host_service(client, &event, 0) > 0) {
 		switch (event.type) {
@@ -133,34 +176,8 @@ bool netowrkTick(){
 						event.peer->address.port);
 				break;
 			case ENET_EVENT_TYPE_RECEIVE:{
-				uint64_t ptrPos = 0;
-
-				{
-					std::lock_guard<std::mutex> lock(playersMtx);
-					players.clear();
-					players = unpackVecFromPacket<PlayerData>(*(event.packet), ptrPos);
-				}
-
-				std::vector<ChunkData> chunks = unpackCompressedVecFromPacket<ChunkData>(*(event.packet), ptrPos);
-
-				for (const ChunkData& chunkData : chunks) {
-					findOrCreateChunk(chunkData.pos) = std::move(chunkData.chunk);
-					markShadowAffectedChunksChanged(chunkData.pos);
-				}
-
-				std::vector<BlockUpdatePacket> blockUpdate = unpackVecFromPacket<BlockUpdatePacket>(*(event.packet), ptrPos);
-				for (const BlockUpdatePacket& blockUpdatePacket : blockUpdate) {
-					if (validChunk(blockUpdatePacket.pos / CHUNK_SIZE)) {
-						setBlock(blockUpdatePacket.pos, blockUpdatePacket.block);
-					}
-				}
-
-				std::vector<Item> item = unpackVecFromPacket<Item>(*(event.packet), ptrPos);
-				for (Item i : item) {
-					dropItem(i.b, i.pos);
-				}
-
-				enet_packet_destroy(event.packet);
+				std::lock_guard<std::mutex> lock(recevedPacketMtx);
+				recevedPacketVec.push_back(event.packet);
 				break;
 			}
 			case ENET_EVENT_TYPE_DISCONNECT:

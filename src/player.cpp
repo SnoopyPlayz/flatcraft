@@ -14,7 +14,6 @@
 #include "item.hpp"
 
 Player player;
-std::mutex blockUpdateMutex;
 std::vector<BlockUpdatePacket> blockUpdates;
 
 bool inventoryOpen = false;
@@ -142,33 +141,31 @@ void Player::updateBlockPlacingBreaking(){
 	int x = std::floor(m.x / (float)BLOCK_SIZE);
 	int z = std::floor(m.y / (float)BLOCK_SIZE);
 
-	auto topBlock = findTopBlock(x, z);
+	auto topBlock = map.findTopBlock(x, z);
 
 	if (topBlock.has_value()) {
 		drawRect3D({(float)x * BLOCK_SIZE ,(float)(topBlock->y + 1) * BLOCK_SIZE, (float)z * BLOCK_SIZE}, ColorAlpha(DARKGRAY, 0.4f));
 	}
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-		std::lock_guard<std::mutex> lock(blockUpdateMutex);
 		if (topBlock.has_value()) {
-			setBlock({x, topBlock->y + 1, z}, selectedBlock);
+			map.setBlock({x, topBlock->y + 1, z}, selectedBlock);
 			blockUpdates.push_back({{x, topBlock->y + 1, z}, selectedBlock});
 
 		} else {
-			setBlock({x, 0, z}, selectedBlock);
+			map.setBlock({x, 0, z}, selectedBlock);
 			blockUpdates.push_back({{x, 0, z}, selectedBlock});
 		}
 	}
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-		std::lock_guard<std::mutex> lock(blockUpdateMutex);
 		if (topBlock.has_value()) {
-			//dropItem(getBlock({x, topBlock->y, z}), (Vec3Int){x * BLOCK_SIZE, topBlock->y * BLOCK_SIZE, z * BLOCK_SIZE}.toVec3());
-			Block dropItem = getBlock({x, topBlock->y, z});
-			setBlock({x, topBlock->y, z}, AIR);
+			//dropItem(map.getBlock({x, topBlock->y, z}), (Vec3Int){x * BLOCK_SIZE, topBlock->y * BLOCK_SIZE, z * BLOCK_SIZE}.toVec3());
+			Block dropItem = map.getBlock({x, topBlock->y, z});
+			map.setBlock({x, topBlock->y, z}, AIR);
 			blockUpdates.push_back({{x, topBlock->y, z}, AIR, dropItem});
 		} else {
-			setBlock({x, 0, z}, AIR);
+			map.setBlock({x, 0, z}, AIR);
 			blockUpdates.push_back({{x, 0, z}, AIR});
 		}
 		

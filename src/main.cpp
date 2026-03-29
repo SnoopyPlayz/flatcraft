@@ -5,6 +5,7 @@
 #include "network.hpp"
 #include "debug.hpp"
 #include "rayUtils.hpp"
+#include "client.hpp"
 #include "worldGen.hpp"
 #include <chrono>
 #include <cstdint>
@@ -55,7 +56,7 @@ int main(int argc, char *argv[]) {
 	InitWindow(1280, 720, "flatCraft");
 	if (args.hasWindowPos) SetWindowPosition(1920 + args.windowPosX, args.windowPosY);
 	setAndLoadFont("Roboto-VariableFont_wdth,wght.ttf");
-	createShadowTexture();
+	map.createShadowTexture();
 
 	worldGenInit();
 
@@ -98,17 +99,20 @@ int main(int argc, char *argv[]) {
 		ClearBackground(BLACK);
 		BeginMode2D(playerCamera.camera);
 
-		drawMap();
+		map.drawMap();
 		player.update();
 		playerCamera.update();
-		createShadowsForMap();
+		map.createShadowsForMap();
 		drawItems();
+
+		preparePacket();
+		processRecevedPacket();
 
 		updateNetwork();
 
 		drawAllTextures3D();
 
-		debugMap();
+		map.debugMap();
 		EndMode2D();
 		player.updateUI();
 		debug.addMessage("fps : %G " + std::to_string(displayedFps));

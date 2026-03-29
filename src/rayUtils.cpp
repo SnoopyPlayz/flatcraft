@@ -109,7 +109,6 @@ void drawTextSDF3D(const std::string& text, float posX, float posY, int fontSize
 }
 
 std::vector<Texture2DInstance> vertices;
-std::mutex vertMtx;
 
 void DrawTextureWithRot(Texture tex, float x, float y, float rot, Color col, float scale = 1){
 	float texX = tex.width;
@@ -126,17 +125,14 @@ void DrawTextureWithRot(Texture tex, float x, float y, float rot, Color col, flo
 }
 
 void drawTexture3D(Texture2D texture, Vector3 pos, Color tint, float rotation, float scale){
-	std::lock_guard<std::mutex> lock(vertMtx);
 	vertices.push_back({{pos.x, pos.y, pos.z}, texture, tint, rotation, scale});
 }
 
 void drawRect3D(Vector3 pos, Color tint){
-	std::lock_guard<std::mutex> lock(vertMtx);
 	vertices.push_back({{pos.x, pos.y, pos.z}, std::nullopt, tint, 0});
 }
 
 void drawTexture3DInstances(const std::vector<Texture2DInstance>& instances){
-	std::lock_guard<std::mutex> lock(vertMtx);
 	vertices.insert(vertices.end(), instances.begin(), instances.end());
 }
 

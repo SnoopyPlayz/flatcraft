@@ -48,7 +48,7 @@ float physicsReaction(Vector3 &pos, float &vel, int axis){
 	Vec3Int pTopLeft = toVec3Int(playerTopLeft);
 	RADUIS(1){
 		Vec3Int blockPos = pTopLeft + (Vec3Int){x,y,z};
-		if (getBlock(blockPos) == AIR) {
+		if (map.getBlock(blockPos) == AIR) {
 			continue;
 		}
 		if (AABBColBox3d(playerTopLeft, {1,1,1}, blockPos.toVec3(), {1,1,1})){
@@ -56,13 +56,13 @@ float physicsReaction(Vector3 &pos, float &vel, int axis){
 			posx.y += 1;
 			const float blockAxis = vec3Axis(blockPos, axis);
 
-			if (getBlock(posx) != AIR) {
+			if (map.getBlock(posx) != AIR) {
 				vec3Axis(posx, axis) += 1;
-				if (getBlock(posx) == AIR && playerAxis > blockAxis) {
+				if (map.getBlock(posx) == AIR && playerAxis > blockAxis) {
 					posAxis += 0.5;
 				}
 				vec3Axis(posx, axis) -= 2;
-				if (getBlock(posx) == AIR && playerAxis < blockAxis) {
+				if (map.getBlock(posx) == AIR && playerAxis < blockAxis) {
 					posAxis -= 0.5;
 				}
 			}

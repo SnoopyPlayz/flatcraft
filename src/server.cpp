@@ -17,12 +17,12 @@
 #include <raymath.h>
 #include <stdio.h>
 #include <lz4.h>
-#include "worldGen.hpp"
 #include "item.hpp"
 
 // server globals
 ENetAddress address;
 ENetHost *server;
+Map serverMap;
 
 template<typename T>
 void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, const std::vector<T>& dataVec) {
@@ -35,9 +35,9 @@ void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, const std::vec
 	compressedData.resize(maxDstSize);
 
 	int compressedSize = LZ4_compress_default(
-			(const char *)dataVec.data(),             // Source pointer
-			(char *)compressedData.data(),      // Destination pointer
-			srcSize,             // Source size
+			(const char *)dataVec.data(),// Source pointer
+			(char *)compressedData.data(),// Destination pointer
+			srcSize,// Source size
 			maxDstSize// Max destination capacity
 	);
 	assert(compressedSize > 0 || srcSize == 0);
@@ -51,11 +51,11 @@ void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, const std::vecto
 	std::vector<ChunkData> chunksVec;
 	for (const Vec3Int& chunkPos: peerChunkRequests) {
 		std::cout << "chunk received: " << chunkPos.x << " " << chunkPos.y << " " << chunkPos.z << std::endl;
-		Chunk& c = findOrCreateChunk(chunkPos);
+		Chunk& c = serverMap.findOrCreateChunk(chunkPos);
 		if (!c.generated){// this is torture
-			genChunk(chunkPos);
+			serverMap.genChunk(chunkPos);
 		}
-		chunksVec.push_back({findOrCreateChunk(chunkPos), chunkPos});
+		chunksVec.push_back({serverMap.findOrCreateChunk(chunkPos), chunkPos});
 	}
 	addCompressedVecToPacket(packetBuffer, chunksVec);
 	addVecToPacket(packetBuffer, blockUpdatesVec);
@@ -122,7 +122,7 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 						dropItem(blockUpdate.dropItem, (blockUpdate.pos * BLOCK_SIZE).toVec3());
 						itemsVec.push_back({blockUpdate.dropItem, (blockUpdate.pos * BLOCK_SIZE).toVec3()});
 					}
-					setBlock(blockUpdate.pos, blockUpdate.block);
+					serverMap.setBlock(blockUpdate.pos, blockUpdate.block);
 					blockUpdatesVec.push_back(blockUpdate);
 				}
 
@@ -158,6 +158,8 @@ void updateServer(std::stop_token st) {
 }
 
 bool hostServer(uint16_t port) {
+	serverMap.worldGenInit();
+
 	address.host = ENET_HOST_ANY;
 	address.port = port;
 

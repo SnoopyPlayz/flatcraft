@@ -6,7 +6,6 @@
 #include <sys/types.h>
 #include <vector>
 
-extern std::mutex blockUpdateMutex;
 extern std::vector<BlockUpdatePacket> blockUpdates;
 extern const float PLAYER_ACCELERATION_SPEED;
 

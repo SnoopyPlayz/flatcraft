@@ -1,6 +1,7 @@
 #include "map.hpp"
 #include "rayUtils.hpp"
 #include <iterator>
+#include <mutex>
 #include <ostream>
 #include <raylib.h>
 #include <raymath.h>
