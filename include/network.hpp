@@ -61,7 +61,6 @@ void addVariableToPacket(std::vector<uint8_t>& packetBuffer, const T &data) {
 struct BlockUpdatePacket{
 	Vec3Int pos;
 	Block block;
-	Block dropItem = AIR;
 };
 
 struct ChunkData{

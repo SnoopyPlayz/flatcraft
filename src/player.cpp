@@ -163,7 +163,7 @@ void Player::updateBlockPlacingBreaking(){
 			//dropItem(map.getBlock({x, topBlock->y, z}), (Vec3Int){x * BLOCK_SIZE, topBlock->y * BLOCK_SIZE, z * BLOCK_SIZE}.toVec3());
 			Block dropItem = map.getBlock({x, topBlock->y, z});
 			map.setBlock({x, topBlock->y, z}, AIR);
-			blockUpdates.push_back({{x, topBlock->y, z}, AIR, dropItem});
+			blockUpdates.push_back({{x, topBlock->y, z}, AIR});
 		} else {
 			map.setBlock({x, 0, z}, AIR);
 			blockUpdates.push_back({{x, 0, z}, AIR});

@@ -118,10 +118,8 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 				it->second = player;
 
 				for (const BlockUpdatePacket& blockUpdate : blockUpdates) {
-					if (blockUpdate.dropItem != AIR) {
-						dropItem(blockUpdate.dropItem, (blockUpdate.pos * BLOCK_SIZE).toVec3());
-						itemsVec.push_back({blockUpdate.dropItem, (blockUpdate.pos * BLOCK_SIZE).toVec3()});
-					}
+						//dropItem(blockUpdate.dropItem, (blockUpdate.pos * BLOCK_SIZE).toVec3());
+						//itemsVec.push_back({blockUpdate.dropItem, (blockUpdate.pos * BLOCK_SIZE).toVec3()});
 					serverMap.setBlock(blockUpdate.pos, blockUpdate.block);
 					blockUpdatesVec.push_back(blockUpdate);
 				}

@@ -108,6 +108,7 @@ void preparePacket(){
 	}
 
 	std::lock_guard<std::mutex> lock(packetBufferMtx);
+	// if packet not sent yet by client thread
 	if (packetBuffer.size() != 0) {
 		return;
 	}
@@ -153,9 +154,6 @@ void processRecevedPacket(){
 }
 
 void updateClients(){
-	for(PlayerData& player : players){
-		pickUpItems(player.player.pos);
-	}
 }
 
 bool netowrkTick(){
