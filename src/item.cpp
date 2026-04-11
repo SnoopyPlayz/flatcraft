@@ -1,7 +1,6 @@
 #include "map.hpp"
 #include "rayUtils.hpp"
 #include <iterator>
-#include <mutex>
 #include <ostream>
 #include <raylib.h>
 #include <raymath.h>
@@ -15,9 +14,7 @@
 
 
 std::vector<Item> items;
-std::mutex itemMtx;
 void dropItem(Block block, Vector3 pos){
-	std::lock_guard<std::mutex> lock(itemMtx);
 	items.push_back({block, pos});
 }
 
@@ -49,7 +46,6 @@ void drawItems(){
 
 // default is player.pos
 void pickUpItems(Vector3 pos){
-	std::lock_guard<std::mutex> lock(itemMtx);
 	for (unsigned long i {}; i < items.size(); i++) {
 		Vector3 itemPos = items[i].pos;
 		itemPos.x += BLOCK_SIZE / 2.;
