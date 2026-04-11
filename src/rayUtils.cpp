@@ -1,9 +1,9 @@
 #include <algorithm>
-#include <optional>
 #include <raylib.h>
 #include <map>
 #include <string>
 #include <stdio.h>
+#include <utility>
 #include <vector>
 #include "rayUtils.hpp"
 #include <map.hpp>
@@ -110,7 +110,7 @@ void drawTextSDF3D(const std::string& text, float posX, float posY, int fontSize
 
 std::vector<Texture2DInstance> vertices;
 
-void DrawTextureWithRot(Texture tex, float x, float y, float rot, Color col, float scale = 1){
+void DrawTextureWithRot(Texture tex, float x, float y, float rot, Color col, float scale){
 	float texX = tex.width;
 	float texY = tex.height;
 	float scaledTexX = texX * scale;
@@ -124,12 +124,8 @@ void DrawTextureWithRot(Texture tex, float x, float y, float rot, Color col, flo
 	DrawTexturePro(tex, texSize, posAndSize, (Vector2){scaledTexX * 0.5f, scaledTexY * 0.5f}, rot, col);
 }
 
-void drawTexture3D(Texture2D texture, Vector3 pos, Color tint, float rotation, float scale){
-	vertices.push_back({{pos.x, pos.y, pos.z}, texture, tint, rotation, scale});
-}
-
-void drawRect3D(Vector3 pos, Color tint){
-	vertices.push_back({{pos.x, pos.y, pos.z}, std::nullopt, tint, 0});
+void queueDraw3D(float height, std::function<void()> drawCall){
+	vertices.push_back({height, std::move(drawCall)});
 }
 
 void drawTexture3DInstances(const std::vector<Texture2DInstance>& instances){
@@ -145,15 +141,12 @@ void drawAllTextures3D(){
 	SetShaderValue(worldShader, worldOffsetLoc, &worldOffset, SHADER_UNIFORM_VEC2);
 
 	std::sort(vertices.begin(), vertices.end(), [](const auto& a, const auto& b) {
-		return (a.position.y < b.position.y);
+		return (a.height < b.height);
 	});
 
 	for (const Texture2DInstance& tex: vertices) {
-		if (tex.texture.has_value()) {
-			DrawTextureWithRot(tex.texture.value(), tex.position.x, tex.position.z, tex.rotation, tex.tint, tex.scale);
-			//DrawTextureEx(tex.texture.value(), {tex.position.x, tex.position.z}, tex.rotation, tex.scale, tex.tint);
-		}else{
-			DrawRectangle(tex.position.x, tex.position.z, BLOCK_SIZE, BLOCK_SIZE, tex.tint);
+		if (tex.drawCall != nullptr) {
+			tex.drawCall();
 		}
 	}
 	vertices.clear();

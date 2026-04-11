@@ -28,3 +28,6 @@ add ```config=release_windows64``` to the end of the make command
 right click - place block<br>
 left click - remove block<br>
 wasd - move<br>
+
+## code note
+do not add new/random namespaces (including anonymous namespaces) unless explicitly needed for the task.

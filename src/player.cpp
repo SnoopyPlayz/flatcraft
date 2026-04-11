@@ -144,7 +144,14 @@ void Player::updateBlockPlacingBreaking(){
 	auto topBlock = map.findTopBlock(x, z);
 
 	if (topBlock.has_value()) {
-		drawRect3D({(float)x * BLOCK_SIZE ,(float)(topBlock->y + 1) * BLOCK_SIZE, (float)z * BLOCK_SIZE}, ColorAlpha(DARKGRAY, 0.4f));
+		const Vector3 blockPreviewPos = {(float)x * BLOCK_SIZE, (float)(topBlock->y + 1) * BLOCK_SIZE, (float)z * BLOCK_SIZE};
+		const Color blockPreviewTint = ColorAlpha(DARKGRAY, 0.4f);
+		queueDraw3D(
+			blockPreviewPos.y,
+			[blockPreviewPos, blockPreviewTint]() {
+				DrawRectangle((int)blockPreviewPos.x, (int)blockPreviewPos.z, BLOCK_SIZE, BLOCK_SIZE, blockPreviewTint);
+			}
+		);
 	}
 
 	if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
@@ -178,7 +185,6 @@ void Player::updateBlockPlacingBreaking(){
 
 const float PLAYER_ACCELERATION_SPEED = 0.3;
 void Player::update(){
-
 	//zoom
 	static float scroll;
 	scroll += GetMouseWheelMove() * 0.1f;
@@ -200,7 +206,14 @@ void Player::update(){
 	playerCenter.x -= 0.5;
 	playerCenter.y += 0.01;
 	playerCenter.z -= 0.5;
-	drawTexture3D(useTexture("player.png"), playerCenter * BLOCK_SIZE, WHITE, 0, 1.0);
+	const Vector3 playerCenterWorld = playerCenter * BLOCK_SIZE;
+	const Texture2D playerTexture = useTexture("player.png");
+	queueDraw3D(
+		playerCenterWorld.y,
+		[playerTexture, playerCenterWorld]() {
+			DrawTextureWithRot(playerTexture, playerCenterWorld.x, playerCenterWorld.z, 0, WHITE, 1.0f);
+		}
+	);
 
 	debug.addMessage("Player pos: " + vector3ToString(pos));
 }

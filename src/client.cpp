@@ -75,7 +75,14 @@ void drawClients(){
 				drawPos.x -= 0.5;
 				drawPos.y += 0.01;
 				drawPos.z -= 0.5;
-				drawTexture3D(useTexture("player.png"), drawPos* BLOCK_SIZE, WHITE);
+				const Vector3 drawPosWorld = drawPos * BLOCK_SIZE;
+				const Texture2D playerTexture = useTexture("player.png");
+				queueDraw3D(
+					drawPosWorld.y,
+					[playerTexture, drawPosWorld]() {
+						DrawTextureWithRot(playerTexture, drawPosWorld.x, drawPosWorld.z, 0, WHITE, 1.0f);
+					}
+				);
 
 				p.pos += player.player.velocity;
 				p.pos = Vector3Lerp(p.pos, player.player.pos, lerpAmount);
@@ -102,7 +109,7 @@ void preparePacket(){
 		if (!map.validChunk(chunkpos)) {
 			//Vector3 debugRect = chunkpos.toVec3() * CHUNK_SIZE * BLOCK_SIZE;
 			//debugRect.y += 10;
-			//drawRect3D(debugRect, RED);
+			//queueDraw3D(debugRect.y, [debugRect]() { DrawRectangle((int)debugRect.x, (int)debugRect.z, BLOCK_SIZE, BLOCK_SIZE, RED); });
 			chunkRequests.push_back(chunkpos);
 		}
 	}
@@ -121,6 +128,17 @@ void preparePacket(){
 
 std::vector<ENetPacket*> recevedPacketVec;
 std::mutex recevedPacketMtx;
+
+void clearQueuedReceivedPackets(){
+	std::lock_guard<std::mutex> lock(recevedPacketMtx);
+	for (ENetPacket* packet : recevedPacketVec) {
+		if (packet != nullptr) {
+			enet_packet_destroy(packet);
+		}
+	}
+	recevedPacketVec.clear();
+}
+
 void processRecevedPacket(){
 	std::lock_guard<std::mutex> lock(recevedPacketMtx);
 	for (ENetPacket* packet : recevedPacketVec) {
@@ -161,9 +179,13 @@ bool netowrkTick(){
 
 	{
 		std::lock_guard<std::mutex> lock(packetBufferMtx);
-		ENetPacket *packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
-		packetBuffer.clear();
-		enet_peer_send(peer, 0, packet);
+		if (!packetBuffer.empty()) {
+			ENetPacket *packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
+			packetBuffer.clear();
+			if (enet_peer_send(peer, 0, packet) < 0) {
+				enet_packet_destroy(packet);
+			}
+		}
 	}
 
 	while (enet_host_service(client, &event, 0) > 0) {
@@ -181,6 +203,7 @@ bool netowrkTick(){
 			case ENET_EVENT_TYPE_DISCONNECT:
 				puts("disconnected from server");
 				players.clear();
+				clearQueuedReceivedPackets();
 				return false;
 				break;
 			case ENET_EVENT_TYPE_NONE:
@@ -198,6 +221,7 @@ void updateClient(std::stop_token st) {
 	enet_peer_disconnect(peer, 0);
 	enet_host_flush(client);
 	enet_host_destroy(client);
+	clearQueuedReceivedPackets();
 }
 
 bool createClient(const char* host, uint16_t port) {
@@ -218,17 +242,44 @@ bool createClient(const char* host, uint16_t port) {
 
 	if (peer == NULL) {
 		fprintf(stderr, "No available peers for initiating an ENet connection.\n");
+		enet_host_destroy(client);
 		return false;
 	}
 
-	// 5 sec timeout for connection
-	if (enet_host_service(client, &event, 5000) > 0 && event.type == ENET_EVENT_TYPE_CONNECT) {
-		puts("Connection to localhost succeeded.");
-	} else {
-		enet_peer_reset(peer);
-		enet_host_destroy(client);
-		puts("Connection to localhost failed.");
-		return false;
+	const int connectTimeoutMs = 5000;
+	const int connectPollMs = 100;
+	for (int elapsed = 0; elapsed < connectTimeoutMs; elapsed += connectPollMs) {
+		const int serviceResult = enet_host_service(client, &event, connectPollMs);
+		if (serviceResult < 0) {
+			break;
+		}
+		if (serviceResult == 0) {
+			continue;
+		}
+
+		switch (event.type) {
+			case ENET_EVENT_TYPE_CONNECT:
+				puts("Connection to localhost succeeded.");
+				return true;
+			case ENET_EVENT_TYPE_RECEIVE: {
+				std::lock_guard<std::mutex> lock(recevedPacketMtx);
+				recevedPacketVec.push_back(event.packet);
+				break;
+			}
+			case ENET_EVENT_TYPE_DISCONNECT:
+				enet_peer_reset(peer);
+				enet_host_destroy(client);
+				clearQueuedReceivedPackets();
+				puts("Connection to localhost failed.");
+				return false;
+			case ENET_EVENT_TYPE_NONE:
+				break;
+		}
 	}
-	return true;
+
+	enet_peer_reset(peer);
+	enet_host_destroy(client);
+	clearQueuedReceivedPackets();
+	puts("Connection to localhost failed.");
+	return false;
 }

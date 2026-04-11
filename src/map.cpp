@@ -18,7 +18,6 @@
 
 Map map;
 
-namespace {
 struct CachedShadowChunk {
 	std::vector<Texture2DInstance> vertices;
 	bool ready = false;
@@ -39,7 +38,6 @@ bool culling(Vec3Int pos, Vec3Int center, const int radius) {
 	}
 	return false;
 }
-} // namespace
 
 void Map::createChunk(Vec3Int pos) {
 	auto result = chunks.emplace(std::make_pair(pos, Chunk{}));
@@ -208,17 +206,26 @@ void Map::createShadowsForMap() {
 			}
 
 			rebuiltTiles++;
+			auto pushShadow = [&cachedShadowChunk, pos](float rotation) {
+				cachedShadowChunk.vertices.push_back({
+					pos.y,
+					[pos, rotation, shadowTex = shadowTexture]() {
+						DrawTextureWithRot(shadowTex, pos.x, pos.z, rotation, WHITE, 1.0f);
+					}
+				});
+			};
+
 			if (hasSolid(blockPos + Vec3Int{0, 1, -1})) {
-				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 0});
+				pushShadow(0);
 			}
 			if (hasSolid(blockPos + Vec3Int{0, 1, 1})) {
-				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 180});
+				pushShadow(180);
 			}
 			if (hasSolid(blockPos + Vec3Int{1, 1, 0})) {
-				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 90});
+				pushShadow(90);
 			}
 			if (hasSolid(blockPos + Vec3Int{-1, 1, 0})) {
-				cachedShadowChunk.vertices.push_back({{pos.x, pos.y, pos.z}, shadowTexture, WHITE, 270});
+				pushShadow(270);
 			}
 		}
 
@@ -289,7 +296,12 @@ void Map::drawMap() {
 
 			Vector3 whiteBackgroundPos = worldPixelPos.toVec3();
 			whiteBackgroundPos.y -= 0.001f;
-			drawRect3D(whiteBackgroundPos, WHITE);
+			queueDraw3D(
+				whiteBackgroundPos.y,
+				[whiteBackgroundPos]() {
+					DrawRectangle((int)whiteBackgroundPos.x, (int)whiteBackgroundPos.z, BLOCK_SIZE, BLOCK_SIZE, WHITE);
+				}
+			);
 
 			float brightness = (worldPos.y - player.pos.y);
 			brightness /= minBrigtnessDistance;
@@ -303,7 +315,14 @@ void Map::drawMap() {
 			}
 
 			Color c = ColorAlpha(ColorBrightness(WHITE, brightness), colorAlpha);
-			drawTexture3D(useTexture(getEnumName(currentBlock) + ".png"), worldPixelPos.toVec3(), c);
+			const Vector3 worldPixelPos3D = worldPixelPos.toVec3();
+			const Texture2D blockTexture = useTexture(getEnumName(currentBlock) + ".png");
+			queueDraw3D(
+				worldPixelPos3D.y,
+				[blockTexture, worldPixelPos3D, c]() {
+					DrawTextureWithRot(blockTexture, worldPixelPos3D.x, worldPixelPos3D.z, 0, c, 1.0f);
+				}
+			);
 		}
 	}
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include <optional>
+#include <functional>
 #include <string>
 #include <vector>
 #include <raylib.h>
@@ -7,20 +7,17 @@
 
 
 struct Texture2DInstance {
-	Vector3 position;
-	std::optional<Texture2D> texture;
-	Color tint;
-	float rotation;
-	float scale = 1.0;
+	float height = 0;
+	std::function<void()> drawCall = nullptr;
 };
 
 Texture2D useTexture(const std::string& Path);
 void setAndLoadFont(const std::string& Path);
 void drawTextSDF(const std::string& text, float posX, float posY, int fontSize, Color color);
-void drawRect3D(Vector3 pos, Color tint);
 void unloadShaders();
 Shader useShader(const std::string& Path, const std::string& fragmentPath);
-void drawTexture3D(Texture2D texture, Vector3 pos, Color tint, float rotation = 0, float scale = 1);
+void DrawTextureWithRot(Texture tex, float x, float y, float rot, Color col, float scale = 1);
+void queueDraw3D(float height, std::function<void()> drawCall);
 std::string stringToLower(std::string s);
 void drawTextSDF3D(const std::string& text, float posX, float posY, int fontSize, Color color);
 

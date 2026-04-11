@@ -107,9 +107,23 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 				clients[event.peer] = std::nullopt;
 				break;
 			case ENET_EVENT_TYPE_RECEIVE: {
+				if (event.packet == nullptr || event.packet->dataLength == 0) {
+					if (event.packet != nullptr) {
+						enet_packet_destroy(event.packet);
+					}
+					assert(false && "Received empty packet from client");
+					break;
+				}
+
 				// set player in the map
 				uint64_t ptrPos = 0;
-				Player player = unpackPacket<Player>(*(event.packet), ptrPos, 1)[0];
+				std::vector<Player> players = unpackPacket<Player>(*(event.packet), ptrPos, 1);
+				if (players.empty()) {
+					enet_packet_destroy(event.packet);
+					assert(false && "Received malformed player packet from client");
+					break;
+				}
+				Player player = players[0];
 
 				std::vector<BlockUpdatePacket> blockUpdates = unpackVecFromPacket<BlockUpdatePacket>(*(event.packet), ptrPos);
 
