@@ -2,11 +2,12 @@
 #include "map.hpp"
 #include "player.hpp"
 
-struct Item{
+class Item{
+public:
 	Block b;
 	Vector3 pos;
 };
 
 void dropItem(Block block, Vector3 pos);
-void pickUpItems(Vector3 pos = player.pos);
+void pickUpItems(Vector3 pos);
 void drawItems();

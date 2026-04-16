@@ -1,3 +1,4 @@
+#include "network.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -14,7 +15,6 @@
 #include "debug.hpp"
 #include "item.hpp"
 #include "map.hpp"
-#include "network.hpp"
 #include "player.hpp"
 #include "rayUtils.hpp"
 #include "raymath.h"

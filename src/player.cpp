@@ -168,7 +168,7 @@ void Player::updateBlockPlacingBreaking(){
 	if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
 		if (topBlock.has_value()) {
 			//dropItem(map.getBlock({x, topBlock->y, z}), (Vec3Int){x * BLOCK_SIZE, topBlock->y * BLOCK_SIZE, z * BLOCK_SIZE}.toVec3());
-			Block dropItem = map.getBlock({x, topBlock->y, z});
+			//Block dropItem = map.getBlock({x, topBlock->y, z});
 			map.setBlock({x, topBlock->y, z}, AIR);
 			blockUpdates.push_back({{x, topBlock->y, z}, AIR});
 		} else {
@@ -200,7 +200,6 @@ void Player::update(){
 
 	updateMovement();
 	updateBlockPlacingBreaking();
-	pickUpItems();
 	// Draw player
 	Vector3 playerCenter = pos;
 	playerCenter.x -= 0.5;

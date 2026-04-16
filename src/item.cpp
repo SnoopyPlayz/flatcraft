@@ -15,19 +15,22 @@
 
 std::vector<Item> items;
 void dropItem(Block block, Vector3 pos){
-	items.push_back({block, pos});
+	items.push_back(Item{block, pos});
 }
 
 void drawItems(){
 	for (Item i : items) {
 		Vector3 itemShadowPos = Vector3AddValue(i.pos, 3);
 		itemShadowPos.y -= 10;
-		float alpha = (itemShadowPos.y - player.pos.y * BLOCK_SIZE) * 0.001 + 1;
-		debug.addMessage(std::to_string(alpha));
+
 		const Texture2D itemTexture = useTexture(getEnumName(i.b) + ".png");
-		const Color shadowTint = ColorAlpha(GRAY, alpha);
 		const Vector3 itemPos = i.pos;
+
+		float alpha = (itemShadowPos.y - player.pos.y * BLOCK_SIZE) * 0.001 + 1;
+		const Color shadowTint = ColorAlpha(GRAY, alpha);
 		const Color itemTint = ColorAlpha(WHITE, alpha);
+
+		debug.addMessage(vector3ToString(itemPos));
 
 		queueDraw3D(
 			itemShadowPos.y,
@@ -38,13 +41,12 @@ void drawItems(){
 		queueDraw3D(
 			itemPos.y,
 			[itemTexture, itemPos, itemTint]() {
-				DrawTextureWithRot(itemTexture, itemPos.x, itemPos.z, 0, itemTint, 0.3f);
+				DrawTextureWithRot(itemTexture, itemPos.x, itemPos.z, 0, itemTint, 1.0f);
 			}
 		);
 	}
 }
 
-// default is player.pos
 void pickUpItems(Vector3 pos){
 	for (unsigned long i {}; i < items.size(); i++) {
 		Vector3 itemPos = items[i].pos;

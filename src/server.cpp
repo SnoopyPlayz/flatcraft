@@ -1,3 +1,4 @@
+#include "network.hpp"
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -5,7 +6,6 @@
 #include <iostream>
 #include "player.hpp"
 #include "rayUtils.hpp"
-#include "network.hpp"
 #include "server.hpp"
 #include "map.hpp"
 #include "vector.hpp"
@@ -103,6 +103,7 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 	while (enet_host_service(server, &event, 0) > 0) {
 		switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT:
+				itemsVec.push_back(Item{GRASS, {0,21,0}});
 				printf("A client connected from %x:%u.\n", event.peer->address.host, event.peer->address.port);
 				clients[event.peer] = std::nullopt;
 				break;
