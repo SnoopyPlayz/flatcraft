@@ -5,6 +5,7 @@
 #include <cassert>
 #include <enet/enet.h>
 #include <iostream>
+#include <mutex>
 #include <lz4.h>
 #include <stdio.h>
 #include <stop_token>
