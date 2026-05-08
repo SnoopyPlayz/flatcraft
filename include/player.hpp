@@ -10,15 +10,21 @@ extern std::vector<BlockUpdatePacket> blockUpdates;
 extern const float PLAYER_ACCELERATION_SPEED;
 
 const int PLAYER_INVENTORY_SIZE = 40;
+
+Vector3 getPlayerTopLeft();
+
 class Player{
 	public:
 		void updateUI();
 		void update();
-		Vector3 pos = {0, 20, 0};
+		Vector3 pos = {0, 55, 0};
 		Block selectedBlock = GRASS;
 		Vector3 velocity = {0, 0, 0};
 		uint8_t inventory[PLAYER_INVENTORY_SIZE];
 		int health = 20;
+		// Block breaking state
+		Vec3Int blockBreakingPos = {0, 0, 0};
+		float blockBreakingProgress = 0.0f;
 	private:
 		void inventoryUpdate();
 		void updateMovement();

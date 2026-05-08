@@ -1,5 +1,6 @@
 #include "map.hpp"
 #include "rayUtils.hpp"
+#include <algorithm>
 #include <iterator>
 #include <ostream>
 #include <raylib.h>
@@ -14,23 +15,17 @@
 
 
 std::vector<Item> items;
-void dropItem(Block block, Vector3 pos){
-	items.push_back(Item{block, pos});
-}
+std::vector<uint32_t> pickedItemIds;
 
 void drawItems(){
 	for (Item i : items) {
-		Vector3 itemShadowPos = Vector3AddValue(i.pos, 3);
-		itemShadowPos.y -= 10;
-
+		Vector3 itemShadowPos = {i.pos.x + 3, i.pos.y - 10, i.pos.z + 3};
+		float alpha = (itemShadowPos.y - player.pos.y * BLOCK_SIZE) * 0.001f + 1.0f;
+		alpha = std::clamp(alpha, 0.0f, 1.0f);
 		const Texture2D itemTexture = useTexture(getEnumName(i.b) + ".png");
-		const Vector3 itemPos = i.pos;
-
-		float alpha = (itemShadowPos.y - player.pos.y * BLOCK_SIZE) * 0.001 + 1;
 		const Color shadowTint = ColorAlpha(GRAY, alpha);
+		const Vector3 itemPos = i.pos;
 		const Color itemTint = ColorAlpha(WHITE, alpha);
-
-		debug.addMessage(vector3ToString(itemPos));
 
 		queueDraw3D(
 			itemShadowPos.y,
@@ -41,21 +36,22 @@ void drawItems(){
 		queueDraw3D(
 			itemPos.y,
 			[itemTexture, itemPos, itemTint]() {
-				DrawTextureWithRot(itemTexture, itemPos.x, itemPos.z, 0, itemTint, 1.0f);
+				DrawTextureWithRot(itemTexture, itemPos.x, itemPos.z, 0, itemTint, 0.3f);
 			}
 		);
 	}
 }
 
+// default is player.pos
+// Queues item IDs for server-side pickup (server is authoritative)
 void pickUpItems(Vector3 pos){
-	for (unsigned long i {}; i < items.size(); i++) {
-		Vector3 itemPos = items[i].pos;
-		itemPos.x += BLOCK_SIZE / 2.;
-		itemPos.z += BLOCK_SIZE / 2.;
-		float distance = Vector3Distance(itemPos, pos * BLOCK_SIZE);
-		if (distance < BLOCK_SIZE * 1.5) {
-			std::swap(items[i], items.back());
-			items.pop_back();
+	for (const Item& item : items) {
+		Vector3 itemCenter = item.pos;
+		itemCenter.x += BLOCK_SIZE / 2.0f;
+		itemCenter.z += BLOCK_SIZE / 2.0f;
+		float distance = Vector3Distance(itemCenter, pos * BLOCK_SIZE);
+		if (distance < BLOCK_SIZE * 1.5f) {
+			pickedItemIds.push_back(item.id);
 		}
 	}
 }

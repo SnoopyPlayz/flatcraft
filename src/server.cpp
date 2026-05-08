@@ -1,4 +1,4 @@
-#include "network.hpp"
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -6,6 +6,7 @@
 #include <iostream>
 #include "player.hpp"
 #include "rayUtils.hpp"
+#include "network.hpp"
 #include "server.hpp"
 #include "map.hpp"
 #include "vector.hpp"
@@ -23,6 +24,7 @@
 ENetAddress address;
 ENetHost *server;
 Map serverMap;
+static uint32_t nextItemId = 0;
 
 template<typename T>
 void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, const std::vector<T>& dataVec) {
@@ -80,6 +82,17 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 
 	const std::vector<Vec3Int> emptyChunkRequests;
 
+	// Item physics: gravity + ground collision
+	for (Item& item : itemsVec) {
+		item.velocity.y -= 0.3f;
+		item.pos.y += item.velocity.y;
+		Vec3Int blockUnder = toVec3Int(item.pos / (float)BLOCK_SIZE);
+		if (serverMap.getBlock(blockUnder) != AIR) {
+			item.pos.y = (float)(blockUnder.y + 1) * BLOCK_SIZE;
+			item.velocity = {0, 0, 0};
+		}
+	}
+
 	for (const auto& [peer, clientP] : clients) {
 		if (!clientP) {// this may not be needed TODO FIXME
 			std::cout << "skipping client with id: " << peer->connectID << " because it has no player data" << std::endl;
@@ -97,13 +110,11 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 	}
 	chunkRequests.clear();
 	blockUpdatesVec.clear();
-	itemsVec.clear();
 
 	ENetEvent event;
 	while (enet_host_service(server, &event, 0) > 0) {
 		switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT:
-				itemsVec.push_back(Item{GRASS, {0,21,0}});
 				printf("A client connected from %x:%u.\n", event.peer->address.host, event.peer->address.port);
 				clients[event.peer] = std::nullopt;
 				break;
@@ -133,13 +144,27 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 				it->second = player;
 
 				for (const BlockUpdatePacket& blockUpdate : blockUpdates) {
-						//dropItem(blockUpdate.dropItem, (blockUpdate.pos * BLOCK_SIZE).toVec3());
-						//itemsVec.push_back({blockUpdate.dropItem, (blockUpdate.pos * BLOCK_SIZE).toVec3()});
+					// Spawn dropped item if a block was broken (server decides what was there)
+					if (blockUpdate.block == AIR) {
+						Block droppedBlock = serverMap.getBlock(blockUpdate.pos);
+						if (droppedBlock != AIR) {
+							Vector3 worldPos = blockUpdate.pos.toVec3() * (float)BLOCK_SIZE;
+							itemsVec.push_back({nextItemId++, droppedBlock, worldPos, {0, 0, 0}});
+						}
+					}
 					serverMap.setBlock(blockUpdate.pos, blockUpdate.block);
 					blockUpdatesVec.push_back(blockUpdate);
 				}
 
 				chunkRequests[event.peer] = unpackVecFromPacket<Vec3Int>(*(event.packet), ptrPos);
+
+				// Unpack picked-up item IDs from client
+				std::vector<uint32_t> pickedIds = unpackVecFromPacket<uint32_t>(*(event.packet), ptrPos);
+				if (!pickedIds.empty()) {
+					std::erase_if(itemsVec, [&](const Item& item) {
+						return std::find(pickedIds.begin(), pickedIds.end(), item.id) != pickedIds.end();
+					});
+				}
 
 				enet_packet_destroy(event.packet);
 				break;

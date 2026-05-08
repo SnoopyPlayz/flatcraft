@@ -29,7 +29,7 @@ void Debug::draw() {
 	for (const std::string &s : messages) {
 		std::string cText = "";
 
-		for (unsigned long i {}; i < s.size(); i++) {
+		for (size_t i {}; i < s.size(); i++) {
 			char c = s[i];
 
 			// edge case % at end

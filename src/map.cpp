@@ -132,6 +132,17 @@ void Map::genChunk(Vec3Int chunkPos) {
 			int height = static_cast<int>((noise.GetNoise(static_cast<float>(x), static_cast<float>(z)) + 5) * 4);
 
 			if (height < worldPos.y || height >= worldPos.y + CHUNK_SIZE) {
+				if (height <= worldPos.y) {
+					continue;
+				}
+				for (int y = CHUNK_SIZE; y > 0; y--) {
+					Vec3Int stonePos{x, y, z};
+					Vec3Int stoneChunkPos = stonePos / CHUNK_SIZE;
+					Chunk& stoneChunk = findOrCreateChunk(stoneChunkPos);
+					if (!stoneChunk.generated) {
+						setBlock(stonePos, STONE);
+					}
+				}
 				continue;
 			}
 

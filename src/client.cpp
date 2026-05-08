@@ -1,4 +1,4 @@
-#include "network.hpp"
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -11,11 +11,13 @@
 #include <stop_token>
 #include <string>
 #include <sys/types.h>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 #include "debug.hpp"
 #include "item.hpp"
 #include "map.hpp"
+#include "network.hpp"
 #include "player.hpp"
 #include "rayUtils.hpp"
 #include "raymath.h"
@@ -50,7 +52,7 @@ void drawClients(){
 	const float lerpAmount = 0.1; // lower = less stutter
 	static std::vector<PlayerData> oldPlayers;
 		
-	for (unsigned long i{}; i < oldPlayers.size(); i++) {
+	for (size_t i{}; i < oldPlayers.size(); i++) {
 		bool playerExists = false;
 		for(PlayerData& player : players){
 			if (player.peer == oldPlayers[i].peer){
@@ -124,6 +126,8 @@ void preparePacket(){
 	addVecToPacket(packetBuffer, blockUpdates);
 	blockUpdates.clear();
 	addVecToPacket(packetBuffer, chunkRequests);
+	addVecToPacket(packetBuffer, pickedItemIds);
+	pickedItemIds.clear();
 }
 
 
@@ -162,9 +166,27 @@ void processRecevedPacket(){
 			}
 		}
 
-		std::vector<Item> item = unpackVecFromPacket<Item>(*packet, ptrPos);
-		for (Item i : item) {
-			dropItem(i.b, i.pos);
+		std::vector<Item> serverItems = unpackVecFromPacket<Item>(*packet, ptrPos);
+		{
+			// Build set of server item IDs for reconciliation
+			std::unordered_set<uint32_t> serverIds;
+			for (const Item& si : serverItems) {
+				serverIds.insert(si.id);
+				// Find existing item by ID
+				auto it = std::find_if(items.begin(), items.end(),
+					[&](const Item& li) { return li.id == si.id; });
+				if (it != items.end()) {
+					// Update position (server physics may have moved it)
+					it->pos = si.pos;
+				} else {
+					// New item from server
+					items.push_back(si);
+				}
+			}
+			// Remove items not in server list (picked up or despawned)
+			std::erase_if(items, [&](const Item& li) {
+				return !serverIds.contains(li.id);
+			});
 		}
 
 		enet_packet_destroy(packet);
