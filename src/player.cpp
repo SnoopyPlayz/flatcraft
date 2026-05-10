@@ -103,12 +103,24 @@ void Player::updateBlockPlacingBreaking() {
         }
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                if (topBlock.has_value()) {
-                        map.setBlock({x, topBlock->y + 1, z}, selectedBlock);
-                        blockUpdates.push_back({{x, topBlock->y + 1, z}, selectedBlock});
-                } else {
-                        map.setBlock({x, 0, z}, selectedBlock);
-                        blockUpdates.push_back({{x, 0, z}, selectedBlock});
+                // find selectedBlock in inventory and consume one
+                int foundSlot = -1;
+                for (int slot = 0; slot < PLAYER_INVENTORY_SIZE; slot++) {
+                        if (inventory[slot] == (uint8_t)selectedBlock) {
+                                foundSlot = slot;
+                                break;
+                        }
+                }
+                if (foundSlot != -1) {
+                        inventory[foundSlot] = AIR;
+
+                        if (topBlock.has_value()) {
+                                map.setBlock({x, topBlock->y + 1, z}, selectedBlock);
+                                blockUpdates.push_back({{x, topBlock->y + 1, z}, selectedBlock});
+                        } else {
+                                map.setBlock({x, 0, z}, selectedBlock);
+                                blockUpdates.push_back({{x, 0, z}, selectedBlock});
+                        }
                 }
         }
 
