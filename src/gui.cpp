@@ -4,85 +4,230 @@
 
 bool inventoryOpen = false;
 
+struct DragState {
+	bool active = false;
+	Block block = AIR;
+	int sourceSlot = -1;
+	uint8_t* sourceArray = nullptr;
+};
+static DragState drag;
+
+// draw one inventory slot cell, returns its screen rectangle
+static Rectangle drawSlot(float x, float y, Block block, bool hovered) {
+	const float itemGridOffset = 5;
+	const float windowRoundess = 0.1f;
+
+	DrawRectangleRounded(
+		(Rectangle){x - itemGridOffset, y - itemGridOffset,
+			BLOCK_SIZE + itemGridOffset * 2, BLOCK_SIZE + itemGridOffset * 2},
+		windowRoundess, 1, DARKGRAY);
+
+	if (block != AIR) {
+		DrawTexture(useTexture(getEnumName(block) + ".png"), x, y, WHITE);
+	}
+
+	if (hovered) {
+		DrawRectangle(x, y, BLOCK_SIZE, BLOCK_SIZE, ColorAlpha(GRAY, 0.5f));
+	}
+
+	return (Rectangle){x, y, BLOCK_SIZE, BLOCK_SIZE};
+}
+
+// highlight slot border in yellow (for hotbar selection indicator)
+static void drawSlotHighlight(float x, float y) {
+	const float offset = 5;
+	DrawRectangleRoundedLines(
+		(Rectangle){x - offset, y - offset,
+			BLOCK_SIZE + offset * 2, BLOCK_SIZE + offset * 2},
+		0.1f, 1, YELLOW);
+}
+
+// draw grid of slots from a uint8_t array, returns rects for hit testing
+static std::vector<Rectangle> drawSlotGrid(uint8_t* slots, int slotCount, int cols, float startX, float startY, float spacing) {
+	std::vector<Rectangle> rects;
+	rects.reserve(slotCount);
+
+	float x = startX;
+	float y = startY;
+
+	for (int i = 0; i < slotCount; i++) {
+		if (i > 0 && i % cols == 0) {
+			x = startX;
+			y += BLOCK_SIZE + spacing;
+		}
+
+		Block block = (Block)slots[i];
+		bool hovered = AABBColBox2d(x, y, BLOCK_SIZE, GetMouseX(), GetMouseY(), 1);
+
+		drawSlot(x, y, block, hovered);
+		rects.push_back({x, y, BLOCK_SIZE, BLOCK_SIZE});
+
+		x += BLOCK_SIZE + spacing;
+	}
+
+	// draw dragged block at cursor
+	if (drag.active) {
+		DrawTexture(useTexture(getEnumName(drag.block) + ".png"),
+			GetMouseX() - BLOCK_SIZE * 0.5f,
+			GetMouseY() - BLOCK_SIZE * 0.5f, WHITE);
+	}
+
+	return rects;
+}
+
+// handle drag-and-drop interaction on a grid
+static void handleGridDrag(uint8_t* slots, int slotCount,
+		const std::vector<Rectangle>& rects, bool recordMove) {
+	for (int i = 0; i < slotCount; i++) {
+		if (!AABBColBox2d(rects[i].x, rects[i].y, BLOCK_SIZE,
+				GetMouseX(), GetMouseY(), 1))
+			continue;
+
+		// pickup
+		if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !drag.active && slots[i] != AIR) {
+			drag.active = true;
+			drag.block = (Block)slots[i];
+			drag.sourceSlot = i;
+			drag.sourceArray = slots;
+			slots[i] = AIR;
+			break;
+		}
+
+		// drop / swap
+		if (drag.active && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+			if (drag.sourceArray == slots && drag.sourceSlot == i) {
+				slots[i] = drag.block; // restore to same slot
+			} else {
+				Block temp = (Block)slots[i];
+				slots[i] = drag.block;
+				if (drag.sourceArray) {
+					drag.sourceArray[drag.sourceSlot] = temp;
+				}
+
+				if (recordMove && drag.sourceArray == player.inventory &&
+						slots == player.inventory) {
+					inventoryMoves.push_back(
+						{(uint8_t)drag.sourceSlot, (uint8_t)i});
+				}
+			}
+
+			drag.active = false;
+			drag.block = AIR;
+			drag.sourceSlot = -1;
+			drag.sourceArray = nullptr;
+			break;
+		}
+	}
+}
+
+// cancel drag if mouse released outside all grids
+static void cancelDragIfReleased() {
+	if (drag.active && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+		if (drag.sourceArray) {
+			drag.sourceArray[drag.sourceSlot] = drag.block;
+		}
+		drag.active = false;
+		drag.block = AIR;
+		drag.sourceSlot = -1;
+		drag.sourceArray = nullptr;
+	}
+}
+
+// hotbar: first 10 slots, centered at bottom of screen
+static void drawHotbar() {
+	int screenW = GetScreenWidth();
+	int screenH = GetScreenHeight();
+	const float spacing = 10;
+
+	float totalWidth = 10 * BLOCK_SIZE + 9 * spacing;
+	float startX = (screenW - totalWidth) / 2.0f;
+	float startY = screenH - BLOCK_SIZE - 12;
+
+	auto rects = drawSlotGrid(player.inventory, 10, 10, startX, startY, spacing);
+	handleGridDrag(player.inventory, 10, rects, true);
+
+	// highlight selected hotbar slot
+	drawSlotHighlight(rects[player.selectedSlot].x, rects[player.selectedSlot].y);
+
+	cancelDragIfReleased();
+}
+
+// 3x3 crafting grid + output slot
+static void drawCraftingGrid(float craftStartX, float craftStartY, float spacing) {
+	// 3x3 input grid
+	auto craftRects = drawSlotGrid(player.craftingSlots, 9, 3,
+		craftStartX, craftStartY, spacing);
+	handleGridDrag(player.craftingSlots, 9, craftRects, false);
+
+	// output slot (to the right of the 3x3, vertically centered)
+	float outputX = craftStartX + 3 * (BLOCK_SIZE + spacing) + 25;
+	float outputY = craftStartY + BLOCK_SIZE + spacing * 0.5f;
+
+	bool outputHovered = AABBColBox2d(outputX, outputY, BLOCK_SIZE,
+		GetMouseX(), GetMouseY(), 1);
+	drawSlot(outputX, outputY, player.craftingResult, outputHovered);
+
+	// click output to collect result
+	if (outputHovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+			player.craftingResult != AIR && !drag.active) {
+		// find first free inventory slot
+		for (int i = 0; i < PLAYER_INVENTORY_SIZE; i++) {
+			if (player.inventory[i] == AIR) {
+				player.inventory[i] = (uint8_t)player.craftingResult;
+				// clear crafting inputs
+				for (int j = 0; j < 9; j++)
+					player.craftingSlots[j] = AIR;
+				player.craftingResult = AIR;
+				break;
+			}
+		}
+	}
+
+	// arrow icon hint between grid and output
+	const char* arrowText = ">";
+	int arrowFontSize = 30;
+	float arrowX = craftStartX + 3 * (BLOCK_SIZE + spacing) + 5;
+	float arrowY = outputY + BLOCK_SIZE / 2 - arrowFontSize / 2;
+	drawTextSDF(arrowText, arrowX, arrowY, arrowFontSize, DARKGRAY);
+}
+
 void Player::inventoryUpdate() {
 	const float windowBorder = 50;
-	const float windowRoundess = 0.1;
-	const int rowSize = 10;
+	const float windowRoundess = 0.1f;
 
 	if (IsKeyPressed(KEY_E)) {
 		inventoryOpen = !inventoryOpen;
 	}
+
 	if (!inventoryOpen) {
+		drawHotbar();
 		return;
 	}
 
+	// inventory window background
 	DrawRectangleRounded((Rectangle){windowBorder, windowBorder,
 			(float)GetScreenWidth() - windowBorder * 2,
 			(float)GetScreenHeight() - windowBorder * 2},
 			windowRoundess, 0, WHITE);
 
-	int y = 100;
-	int x = 1;
-	static bool selected = false;
-	static Block selectedBlock = AIR;
-	static int lastPos;
+	const float spacing = 10;
+	int screenW = GetScreenWidth();
 
-	for (int i{}; i < PLAYER_INVENTORY_SIZE; i++) {
-		float pixelPosX = 1.2 * BLOCK_SIZE * x;
+	// main inventory (40 slots, 10 cols) — left side
+	float mainStartX = windowBorder + 40;
+	float mainStartY = 100;
 
-		if (x > rowSize || pixelPosX + BLOCK_SIZE > GetScreenWidth()) {
-			x = 1;
-			y += 100;
-		}
+	auto mainRects = drawSlotGrid(inventory, 40, 10, mainStartX, mainStartY, spacing);
+	handleGridDrag(inventory, 40, mainRects, true);
 
-		pixelPosX = 1.2 * BLOCK_SIZE * x;
+	// crafting grid — right side
+	float craftStartX = screenW - windowBorder - 40 -
+		(3 * (BLOCK_SIZE + spacing) + 25 + BLOCK_SIZE + 25);
+	float craftStartY = 200;
 
-		// item background
-		const float itemGridOffset = 5;
-		DrawRectangleRounded((Rectangle){pixelPosX - itemGridOffset,
-				(float)y - itemGridOffset,
-				BLOCK_SIZE + itemGridOffset * 2,
-				BLOCK_SIZE + itemGridOffset * 2},
-				windowRoundess, 1, DARKGRAY);
+	drawCraftingGrid(craftStartX, craftStartY, spacing);
 
-		x++;
-
-		// draw item Tex
-		if (inventory[i] != AIR) {
-			DrawTexture(useTexture(getEnumName((Block)inventory[i]) + ".png"),
-					pixelPosX, y, WHITE);
-		}
-
-		// colision with cursor
-		if (AABBColBox2d(pixelPosX, y, BLOCK_SIZE, GetMouseX(), GetMouseY(), 1)) {
-			if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && inventory[i] != AIR) {
-				selected = true;
-				selectedBlock = (Block)inventory[i];
-				inventory[i] = AIR;
-				lastPos = i;
-			}
-
-			if (selected) {
-				if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-					inventory[lastPos] = (Block)inventory[i];
-					inventory[i] = selectedBlock;
-					selected = false;
-					selectedBlock = AIR;
-					inventoryMoves.push_back({(uint8_t)lastPos, (uint8_t)i});
-				}
-			}
-
-			DrawRectangle(pixelPosX, y, BLOCK_SIZE, BLOCK_SIZE,
-					ColorAlpha(GRAY, 0.5));
-		}
-
-		// draw selectedBlock
-		if (selected) {
-			DrawTexture(useTexture(getEnumName(selectedBlock) + ".png"),
-					GetMouseX() - BLOCK_SIZE * 0.5,
-					GetMouseY() - BLOCK_SIZE * 0.5, WHITE);
-		}
-	}
+	cancelDragIfReleased();
 }
 
 void Player::updateUI() { inventoryUpdate(); }

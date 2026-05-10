@@ -95,10 +95,11 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 	                        for (int slot = 0; slot < PLAYER_INVENTORY_SIZE; slot++) {
 	                                if (p.inventory[slot] == AIR) {
 	                                        p.inventory[slot] = (uint8_t)item.b;
+	                        		return true;
 	                                        break;
 	                                }
 	                        }
-	                        return true;
+
 	                }
 	        }
 	        return false;
@@ -167,11 +168,14 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 				        // first update get full player state
 				        it->second = player;
 				} else {
-                                        // subsequent updates only update the changing state not inventory
+				        // subsequent updates only update the changing state not inventory
 				        it->second->pos = player.pos;
 				        it->second->velocity = player.velocity;
 				        it->second->selectedBlock = player.selectedBlock;
+				        it->second->selectedSlot = player.selectedSlot;
 				        it->second->health = player.health;
+				        it->second->blockBreakingPos = player.blockBreakingPos;
+				        it->second->blockBreakingProgress = player.blockBreakingProgress;
 				}
 
 				for (const BlockUpdatePacket& blockUpdate : blockUpdates) {
@@ -183,20 +187,14 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 				                        itemsVec.push_back({nextItemId++, droppedBlock, worldPos, {0, 0, 0}});
 				                }
 				        } else {
-				                // check if player has block in inventory
 				                Player& p = *it->second;
-				                int foundSlot = -1;
-				                for (int slot = 0; slot < PLAYER_INVENTORY_SIZE; slot++) {
-				                        if (p.inventory[slot] == (uint8_t)blockUpdate.block) {
-				                                foundSlot = slot;
-				                                break;
-				                        }
-				                }
-				                if (foundSlot == -1) {
+				                // consume from same slot the client used
+				                if (p.selectedSlot >= PLAYER_INVENTORY_SIZE ||
+				                    p.inventory[p.selectedSlot] != (uint8_t)blockUpdate.block) {
 				                        blockUpdatesVec.push_back({blockUpdate.pos, AIR});
 				                        continue;
 				                }
-				                p.inventory[foundSlot] = AIR;
+				                p.inventory[p.selectedSlot] = AIR;
 				        }
 				        serverMap.setBlock(blockUpdate.pos, blockUpdate.block);
 				        blockUpdatesVec.push_back(blockUpdate);

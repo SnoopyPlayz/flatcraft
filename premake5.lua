@@ -1,6 +1,6 @@
 workspace "flatcraft"
    configurations { "Debug", "Release" }
-   platforms { "Linux64", "Windows64" }
+   platforms { "Windows64", "Linux64" }
     
     filter "platforms:Windows64"
         architecture "x86_64"

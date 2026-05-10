@@ -24,8 +24,7 @@ Vector3 getPlayerTopLeft() {
 
 void Player::updateMovement() {
         const float playerRunningSpeed = 0.18;
-        const float playerSpeed =
-                IsKeyDown(KEY_LEFT_SHIFT) ? playerRunningSpeed : 0.12;
+        const float playerSpeed = IsKeyDown(KEY_LEFT_SHIFT) ? playerRunningSpeed : 0.12;
 
         const float GRAVITY = 0.05f;
         const float JUMP_VELOCITY = 0.25f;
@@ -75,11 +74,21 @@ void Player::updateMovement() {
 }
 
 void Player::updateBlockPlacingBreaking() {
-        // select block
-        for (int key = KEY_ZERO; key <= KEY_NINE; key++) {
-                if (IsKeyPressed(key)) {
-                        selectedBlock = static_cast<Block>(key - KEY_ZERO);
-                }
+        // select hotbar slot
+        for (int key = KEY_ONE; key <= KEY_NINE; key++) {
+        	if (IsKeyPressed(key)) {
+        		selectedSlot = key - KEY_ONE;
+        		selectedBlock = (Block)inventory[selectedSlot];
+        	}
+        }
+
+        // mouse wheel to cycle hotbar slots
+        float wheel = GetMouseWheelMove();
+        if (wheel != 0) {
+                selectedSlot -= (wheel > 0 ? 1 : -1);
+                if (selectedSlot < 0) selectedSlot = 9;
+                if (selectedSlot > 9) selectedSlot = 0;
+                selectedBlock = (Block)inventory[selectedSlot];
         }
 
         Vector2 mouseScreen = GetMousePosition();
@@ -103,29 +112,22 @@ void Player::updateBlockPlacingBreaking() {
         }
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                // find selectedBlock in inventory and consume one
-                int foundSlot = -1;
-                for (int slot = 0; slot < PLAYER_INVENTORY_SIZE; slot++) {
-                        if (inventory[slot] == (uint8_t)selectedBlock) {
-                                foundSlot = slot;
-                                break;
-                        }
-                }
-                if (foundSlot != -1) {
-                        inventory[foundSlot] = AIR;
-
-                        if (topBlock.has_value()) {
-                                map.setBlock({x, topBlock->y + 1, z}, selectedBlock);
-                                blockUpdates.push_back({{x, topBlock->y + 1, z}, selectedBlock});
-                        } else {
-                                map.setBlock({x, 0, z}, selectedBlock);
-                                blockUpdates.push_back({{x, 0, z}, selectedBlock});
-                        }
-                }
+        	if (inventory[selectedSlot] != AIR) {
+        		Block placing = (Block)inventory[selectedSlot];
+        		inventory[selectedSlot] = AIR;
+      
+        		if (topBlock.has_value()) {
+        			map.setBlock({x, topBlock->y + 1, z}, placing);
+        			blockUpdates.push_back({{x, topBlock->y + 1, z}, placing});
+        		} else {
+        			map.setBlock({x, 0, z}, placing);
+        			blockUpdates.push_back({{x, 0, z}, placing});
+        		}
+        	}
         }
 
         // timed block breaking
-        constexpr float BLOCK_BREAK_TIME = 1.0f; // in sec
+        const float BlockBreakTime = debug.enabled ? 0.3 : 1.00; // in sec
 
         Vec3Int currentTarget = topBlock.has_value()
                 ? Vec3Int{x, topBlock->y, z}
@@ -133,7 +135,7 @@ void Player::updateBlockPlacingBreaking() {
 
         if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
                 if (blockBreakingPos == currentTarget) {
-                        blockBreakingProgress += FIXED_FRAME_TIME.count() / BLOCK_BREAK_TIME;
+                        blockBreakingProgress += FIXED_FRAME_TIME.count() / BlockBreakTime;
                         if (blockBreakingProgress >= 1.0f) {
                                 map.setBlock(blockBreakingPos, AIR);
                                 blockUpdates.push_back({blockBreakingPos, AIR});

@@ -3,7 +3,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <cassert>
-#include <enet/enet.h>
 #include <iostream>
 #include <mutex>
 #include <lz4.h>
@@ -86,6 +85,17 @@ void drawClients(){
 						DrawTextureWithRot(playerTexture, drawPosWorld.x, drawPosWorld.z, 0, WHITE, 1.0f);
 					}
 				);
+
+				// draw breaking overlay for other players
+				if (player.player.blockBreakingProgress > 0.0f) {
+					const Vector3 breakWorldPos = player.player.blockBreakingPos.toVec3() * (float)BLOCK_SIZE;
+					const Texture2D breakTex = useTexture("block_breaking.png");
+					const float alpha = player.player.blockBreakingProgress;
+					queueDraw3D(breakWorldPos.y + 0.01,
+						[breakTex, breakWorldPos, alpha]() {
+							DrawTextureWithRot(breakTex, breakWorldPos.x, breakWorldPos.z, 0, ColorAlpha(WHITE, alpha), 1.0f);
+						});
+				}
 
 				p.pos += player.player.velocity;
 				p.pos = Vector3Lerp(p.pos, player.player.pos, lerpAmount);
