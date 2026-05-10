@@ -23,7 +23,7 @@ struct WindowArgs {
 	int windowPosY = 0;
 };
 
-WindowArgs parseWindowArgs(int argc, char *argv[]) {
+static WindowArgs parseWindowArgs(int argc, char *argv[]) {
 	WindowArgs args;
 	for (int i = 1; i < argc; ++i) {
 		std::string arg(argv[i]);

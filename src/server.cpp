@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <lz4.h>
 #include "item.hpp"
+#include "crafting.hpp"
 
 // server globals
 ENetAddress address;
@@ -27,7 +28,7 @@ Map serverMap;
 static uint32_t nextItemId = 0;
 
 template<typename T>
-void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, const std::vector<T>& dataVec) {
+static void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, const std::vector<T>& dataVec) {
 	const uint64_t uncompressedSize = dataVec.size();
 	addVariableToPacket(packetBuffer, uncompressedSize);
 
@@ -49,7 +50,7 @@ void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, const std::vec
 }
 
 
-void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, const std::vector<Vec3Int>& peerChunkRequests, const std::vector<BlockUpdatePacket>& blockUpdatesVec, const std::vector<Item>& itemsVec) {
+static void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, const std::vector<Vec3Int>& peerChunkRequests, const std::vector<BlockUpdatePacket>& blockUpdatesVec, const std::vector<Item>& itemsVec) {
 	std::vector<ChunkData> chunksVec;
 	for (const Vec3Int& chunkPos: peerChunkRequests) {
 		std::cout << "chunk received: " << chunkPos.x << " " << chunkPos.y << " " << chunkPos.z << std::endl;
@@ -64,71 +65,172 @@ void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, const std::vecto
 	addVecToPacket(packetBuffer, itemsVec);
 }
 
+static void tickItemPhysics(std::vector<Item>& itemsVec) {
+	for (Item& item : itemsVec) {
+		item.velocity.y -= 0.3f;
+		item.pos.y += item.velocity.y;
+		Vec3Int blockUnder = toVec3Int(item.pos / (float)BLOCK_SIZE);
+		if (serverMap.getBlock(blockUnder) != AIR) {
+			item.pos.y = (float)(blockUnder.y + 1) * BLOCK_SIZE;
+			item.velocity = {0, 0, 0};
+		}
+	}
+}
+
+static void tickItemPickup(std::vector<Item>& itemsVec, std::unordered_map<ENetPeer*, std::optional<Player>>& clients) {
+	std::erase_if(itemsVec, [&](const Item& item) {
+		for (auto& [peer, clientP] : clients) {
+			if (!clientP) continue;
+			Player& p = *clientP;
+			Vector3 itemCenter = item.pos;
+			itemCenter.x += (float)BLOCK_SIZE / 2.0f;
+			itemCenter.z += (float)BLOCK_SIZE / 2.0f;
+			float dist = Vector3Distance(itemCenter, p.pos * (float)BLOCK_SIZE);
+			if (dist < (float)BLOCK_SIZE * 1.5f) {
+				for (int slot = 0; slot < PLAYER_INVENTORY_SIZE; slot++) {
+					if (p.inventory[slot] == AIR) {
+						p.inventory[slot] = (uint8_t)item.b;
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	});
+}
+
+static std::vector<PlayerData> buildPlayerDataVec(const std::unordered_map<ENetPeer*, std::optional<Player>>& clients) {
+	std::vector<PlayerData> playerDataVec;
+	playerDataVec.reserve(clients.size());
+	for (const auto& [peer, playerOpt] : clients) {
+		if (!playerOpt) {
+			std::cout << "unique player skipped" << std::endl;
+			continue;
+		}
+		playerDataVec.push_back({*playerOpt, peer->connectID});
+	}
+	return playerDataVec;
+}
+
+static void handleReceivePacket(
+    ENetPacket* packet,
+    ENetPeer* peer,
+    std::unordered_map<ENetPeer*, std::optional<Player>>& clients,
+    std::unordered_map<ENetPeer*, std::vector<Vec3Int>>& chunkRequests,
+    std::vector<BlockUpdatePacket>& blockUpdatesVec,
+    std::vector<Item>& itemsVec) {
+	if (packet == nullptr || packet->dataLength == 0) {
+		if (packet != nullptr)
+			enet_packet_destroy(packet);
+		assert(false && "Received empty packet from client");
+		return;
+	}
+
+	uint64_t ptrPos = 0;
+	std::vector<Player> players = unpackPacket<Player>(*packet, ptrPos, 1);
+	if (players.empty()) {
+		enet_packet_destroy(packet);
+		assert(false && "Received malformed player packet from client");
+		return;
+	}
+	Player player = players[0];
+
+	std::vector<BlockUpdatePacket> blockUpdates = unpackVecFromPacket<BlockUpdatePacket>(*packet, ptrPos);
+
+	auto it = clients.find(peer);
+	assert(it != clients.end());
+	if (!it->second) {
+		it->second = player;
+	} else {
+		it->second->pos = player.pos;
+		it->second->velocity = player.velocity;
+		it->second->selectedBlock = player.selectedBlock;
+		it->second->selectedSlot = player.selectedSlot;
+		it->second->health = player.health;
+		it->second->blockBreakingPos = player.blockBreakingPos;
+		it->second->blockBreakingProgress = player.blockBreakingProgress;
+	}
+
+	for (const BlockUpdatePacket& blockUpdate : blockUpdates) {
+		if (blockUpdate.block == AIR) {
+			Block droppedBlock = serverMap.getBlock(blockUpdate.pos);
+			if (droppedBlock != AIR) {
+				Vector3 worldPos = blockUpdate.pos.toVec3() * (float)BLOCK_SIZE;
+				itemsVec.push_back({nextItemId++, droppedBlock, worldPos, {0, 0, 0}});
+			}
+		} else {
+			Player& p = *it->second;
+			if (p.selectedSlot >= PLAYER_INVENTORY_SIZE ||
+			    p.inventory[p.selectedSlot] != (uint8_t)blockUpdate.block) {
+				blockUpdatesVec.push_back({blockUpdate.pos, AIR});
+				continue;
+			}
+			p.inventory[p.selectedSlot] = AIR;
+		}
+		serverMap.setBlock(blockUpdate.pos, blockUpdate.block);
+		blockUpdatesVec.push_back(blockUpdate);
+	}
+
+	chunkRequests[peer] = unpackVecFromPacket<Vec3Int>(*packet, ptrPos);
+
+	std::vector<InventoryMovePacket> inventoryMoves =
+	    unpackVecFromPacket<InventoryMovePacket>(*packet, ptrPos);
+	for (const auto& move : inventoryMoves) {
+		if (move.fromSlot == SLOT_CRAFT_OUTPUT && move.toSlot < PLAYER_INVENTORY_SIZE) {
+			if (it->second->craftingResult != AIR && it->second->inventory[move.toSlot] == AIR) {
+				it->second->inventory[move.toSlot] = (uint8_t)it->second->craftingResult;
+				for (int i = 0; i < CRAFTING_GRID_SIZE; i++)
+					it->second->craftingSlots[i] = AIR;
+				it->second->craftingResult = AIR;
+			}
+			continue;
+		}
+
+		auto getSlotPtr = [&](uint8_t slot) -> uint8_t* {
+			if (slot < PLAYER_INVENTORY_SIZE) return &it->second->inventory[slot];
+			if (slot >= SLOT_CRAFT_OFFSET && slot < SLOT_CRAFT_OUTPUT)
+				return &it->second->craftingSlots[slot - SLOT_CRAFT_OFFSET];
+			return nullptr;
+		};
+
+		uint8_t* from = getSlotPtr(move.fromSlot);
+		uint8_t* to = getSlotPtr(move.toSlot);
+		if (from && to && *from != AIR) {
+			std::swap(*from, *to);
+		}
+	}
+	it->second->craftingResult = lookupRecipe(it->second->craftingSlots);
+
+	enet_packet_destroy(packet);
+}
+
 void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients) {
 	static std::unordered_map<ENetPeer *, std::vector<Vec3Int>> chunkRequests;
 	static std::vector<BlockUpdatePacket> blockUpdatesVec;
 	static std::vector<Item> itemsVec;
 	const std::vector<Vec3Int> emptyChunkRequests;
 
-	// Item physics. gravity + ground collision
-	for (Item& item : itemsVec) {
-	        item.velocity.y -= 0.3f;
-	        item.pos.y += item.velocity.y;
-	        Vec3Int blockUnder = toVec3Int(item.pos / (float)BLOCK_SIZE);
-	        if (serverMap.getBlock(blockUnder) != AIR) {
-	                item.pos.y = (float)(blockUnder.y + 1) * BLOCK_SIZE;
-	                item.velocity = {0, 0, 0};
-	        }
-	}
+	tickItemPhysics(itemsVec);
+	tickItemPickup(itemsVec, clients);
 
-	// Item pickup
-	std::erase_if(itemsVec, [&](const Item& item) {
-	        for (auto& [peer, clientP] : clients) {
-	                if (!clientP) continue;
-	                Player& p = *clientP;
-	                Vector3 itemCenter = item.pos;
-	                itemCenter.x += (float)BLOCK_SIZE / 2.0f;
-	                itemCenter.z += (float)BLOCK_SIZE / 2.0f;
-	                float dist = Vector3Distance(itemCenter, p.pos * (float)BLOCK_SIZE);
-	                if (dist < (float)BLOCK_SIZE * 1.5f) {
-	                        // Add to empty inventory slot
-	                        for (int slot = 0; slot < PLAYER_INVENTORY_SIZE; slot++) {
-	                                if (p.inventory[slot] == AIR) {
-	                                        p.inventory[slot] = (uint8_t)item.b;
-	                        		return true;
-	                                        break;
-	                                }
-	                        }
-
-	                }
-	        }
-	        return false;
-	});
-
-        // get a vector of valid players to send to clients
-	std::vector<PlayerData> playerDataVec;
-	playerDataVec.reserve(clients.size());
-	for (const auto& [uniquePeers, uniquePlayer] : clients) {
-	        if (!uniquePlayer){
-	                std::cout << "unique player skipped" << std::endl;
-	                continue;
-	        }
-	        playerDataVec.push_back({*uniquePlayer, uniquePeers->connectID});
-	}
+	std::vector<PlayerData> playerDataVec = buildPlayerDataVec(clients);
 
 	for (const auto& [peer, clientP] : clients) {
-		if (!clientP) {// this may not be needed TODO FIXME
-			std::cout << "skipping client with id: " << peer->connectID << " because it has no player data" << std::endl;
+		if (!clientP) {
+			std::cout << "skipping client with id: " << peer->connectID
+			          << " because it has no player data" << std::endl;
 		}
 
-		std::vector<uint8_t> packetBuffer; // the packet that will be sent
+		std::vector<uint8_t> packetBuffer;
 		addVecToPacket(packetBuffer, playerDataVec);
 
 		const auto requestIt = chunkRequests.find(peer);
-		const std::vector<Vec3Int>& peerChunkRequests = requestIt != chunkRequests.end() ? requestIt->second : emptyChunkRequests;
+		const std::vector<Vec3Int>& peerChunkRequests =
+		    requestIt != chunkRequests.end() ? requestIt->second : emptyChunkRequests;
 		addToPacketForEachPeer(packetBuffer, peerChunkRequests, blockUpdatesVec, itemsVec);
 
-		ENetPacket* packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(), ENET_PACKET_FLAG_RELIABLE);
+		ENetPacket* packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(),
+		                                        ENET_PACKET_FLAG_RELIABLE);
 		enet_peer_send(peer, 0, packet);
 	}
 	chunkRequests.clear();
@@ -138,83 +240,14 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 	while (enet_host_service(server, &event, 0) > 0) {
 		switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT:
-				printf("A client connected from %x:%u.\n", event.peer->address.host, event.peer->address.port);
+				printf("A client connected from %x:%u.\n",
+				       event.peer->address.host, event.peer->address.port);
 				clients[event.peer] = std::nullopt;
 				break;
-			case ENET_EVENT_TYPE_RECEIVE: {
-				if (event.packet == nullptr || event.packet->dataLength == 0) {
-					if (event.packet != nullptr) {
-						enet_packet_destroy(event.packet);
-					}
-					assert(false && "Received empty packet from client");
-					break;
-				}
-
-				// set player in the map
-				uint64_t ptrPos = 0;
-				std::vector<Player> players = unpackPacket<Player>(*(event.packet), ptrPos, 1);
-				if (players.empty()) {
-					enet_packet_destroy(event.packet);
-					assert(false && "Received malformed player packet from client");
-					break;
-				}
-				Player player = players[0];
-
-				std::vector<BlockUpdatePacket> blockUpdates = unpackVecFromPacket<BlockUpdatePacket>(*(event.packet), ptrPos);
-
-				auto it = clients.find(event.peer);
-				assert(it != clients.end());
-				if (!it->second) {
-				        // first update get full player state
-				        it->second = player;
-				} else {
-				        // subsequent updates only update the changing state not inventory
-				        it->second->pos = player.pos;
-				        it->second->velocity = player.velocity;
-				        it->second->selectedBlock = player.selectedBlock;
-				        it->second->selectedSlot = player.selectedSlot;
-				        it->second->health = player.health;
-				        it->second->blockBreakingPos = player.blockBreakingPos;
-				        it->second->blockBreakingProgress = player.blockBreakingProgress;
-				}
-
-				for (const BlockUpdatePacket& blockUpdate : blockUpdates) {
-				        // Spawn dropped item if a block was broken (server decides what was there)
-				        if (blockUpdate.block == AIR) {
-				                Block droppedBlock = serverMap.getBlock(blockUpdate.pos);
-				                if (droppedBlock != AIR) {
-				                        Vector3 worldPos = blockUpdate.pos.toVec3() * (float)BLOCK_SIZE;
-				                        itemsVec.push_back({nextItemId++, droppedBlock, worldPos, {0, 0, 0}});
-				                }
-				        } else {
-				                Player& p = *it->second;
-				                // consume from same slot the client used
-				                if (p.selectedSlot >= PLAYER_INVENTORY_SIZE ||
-				                    p.inventory[p.selectedSlot] != (uint8_t)blockUpdate.block) {
-				                        blockUpdatesVec.push_back({blockUpdate.pos, AIR});
-				                        continue;
-				                }
-				                p.inventory[p.selectedSlot] = AIR;
-				        }
-				        serverMap.setBlock(blockUpdate.pos, blockUpdate.block);
-				        blockUpdatesVec.push_back(blockUpdate);
-				}
-
-				chunkRequests[event.peer] = unpackVecFromPacket<Vec3Int>(*(event.packet), ptrPos);
-
-				std::vector<InventoryMovePacket> inventoryMoves = unpackVecFromPacket<InventoryMovePacket>(*(event.packet), ptrPos);
-				for (const auto& move : inventoryMoves) {
-					if (move.fromSlot < PLAYER_INVENTORY_SIZE &&
-					    move.toSlot < PLAYER_INVENTORY_SIZE &&
-					    it->second->inventory[move.fromSlot] != AIR) {
-						std::swap(it->second->inventory[move.fromSlot],
-						          it->second->inventory[move.toSlot]);
-					}
-				}
-
-				enet_packet_destroy(event.packet);
+			case ENET_EVENT_TYPE_RECEIVE:
+				handleReceivePacket(event.packet, event.peer, clients,
+				                    chunkRequests, blockUpdatesVec, itemsVec);
 				break;
-			}
 			case ENET_EVENT_TYPE_DISCONNECT:
 				puts("disconnected from server");
 				clients.erase(event.peer);
@@ -243,6 +276,7 @@ void updateServer(std::stop_token st) {
 
 bool hostServer(uint16_t port) {
 	serverMap.worldGenInit();
+	initRecipes();
 
 	address.host = ENET_HOST_ANY;
 	address.port = port;

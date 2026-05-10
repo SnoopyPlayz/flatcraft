@@ -9,8 +9,12 @@
 extern std::vector<BlockUpdatePacket> blockUpdates;
 extern std::vector<InventoryMovePacket> inventoryMoves;
 extern const float PLAYER_ACCELERATION_SPEED;
+extern bool inventoryOpen;
 
 const int PLAYER_INVENTORY_SIZE = 40;
+const int CRAFTING_GRID_SIZE = 9;
+const uint8_t SLOT_CRAFT_OUTPUT = 49;
+const uint8_t SLOT_CRAFT_OFFSET = 40;
 
 Vector3 getPlayerTopLeft();
 

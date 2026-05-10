@@ -28,7 +28,7 @@ Texture2D shadowTexture;
 thread_local FastNoiseLite noise;
 thread_local bool noiseReady = false;
 
-bool culling(Vec3Int pos, Vec3Int center, const int radius) {
+static bool culling(Vec3Int pos, Vec3Int center, const int radius) {
 	Vec3Int position = center / CHUNK_SIZE;
 
 	RADUIS(radius) {

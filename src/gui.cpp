@@ -77,7 +77,7 @@ static std::vector<Rectangle> drawSlotGrid(uint8_t* slots, int slotCount, int co
 
 // handle drag-and-drop interaction on a grid
 static void handleGridDrag(uint8_t* slots, int slotCount,
-		const std::vector<Rectangle>& rects, bool recordMove) {
+		const std::vector<Rectangle>& rects) {
 	for (int i = 0; i < slotCount; i++) {
 		if (!AABBColBox2d(rects[i].x, rects[i].y, BLOCK_SIZE,
 				GetMouseX(), GetMouseY(), 1))
@@ -104,11 +104,10 @@ static void handleGridDrag(uint8_t* slots, int slotCount,
 					drag.sourceArray[drag.sourceSlot] = temp;
 				}
 
-				if (recordMove && drag.sourceArray == player.inventory &&
-						slots == player.inventory) {
-					inventoryMoves.push_back(
-						{(uint8_t)drag.sourceSlot, (uint8_t)i});
-				}
+				uint8_t fromOffset = (drag.sourceArray == player.craftingSlots) ? SLOT_CRAFT_OFFSET : 0;
+				uint8_t toOffset = (slots == player.craftingSlots) ? SLOT_CRAFT_OFFSET : 0;
+				inventoryMoves.push_back(
+					{(uint8_t)(fromOffset + drag.sourceSlot), (uint8_t)(toOffset + i)});
 			}
 
 			drag.active = false;
@@ -144,7 +143,7 @@ static void drawHotbar() {
 	float startY = screenH - BLOCK_SIZE - 12;
 
 	auto rects = drawSlotGrid(player.inventory, 10, 10, startX, startY, spacing);
-	handleGridDrag(player.inventory, 10, rects, true);
+	handleGridDrag(player.inventory, 10, rects);
 
 	// highlight selected hotbar slot
 	drawSlotHighlight(rects[player.selectedSlot].x, rects[player.selectedSlot].y);
@@ -157,7 +156,7 @@ static void drawCraftingGrid(float craftStartX, float craftStartY, float spacing
 	// 3x3 input grid
 	auto craftRects = drawSlotGrid(player.craftingSlots, 9, 3,
 		craftStartX, craftStartY, spacing);
-	handleGridDrag(player.craftingSlots, 9, craftRects, false);
+	handleGridDrag(player.craftingSlots, 9, craftRects);
 
 	// output slot (to the right of the 3x3, vertically centered)
 	float outputX = craftStartX + 3 * (BLOCK_SIZE + spacing) + 25;
@@ -170,14 +169,15 @@ static void drawCraftingGrid(float craftStartX, float craftStartY, float spacing
 	// click output to collect result
 	if (outputHovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
 			player.craftingResult != AIR && !drag.active) {
-		// find first free inventory slot
 		for (int i = 0; i < PLAYER_INVENTORY_SIZE; i++) {
 			if (player.inventory[i] == AIR) {
+				// local processing for snappy UI
 				player.inventory[i] = (uint8_t)player.craftingResult;
-				// clear crafting inputs
-				for (int j = 0; j < 9; j++)
+				for (int j = 0; j < CRAFTING_GRID_SIZE; j++)
 					player.craftingSlots[j] = AIR;
 				player.craftingResult = AIR;
+				// tell server to validate and process
+				inventoryMoves.push_back({SLOT_CRAFT_OUTPUT, (uint8_t)i});
 				break;
 			}
 		}
@@ -218,7 +218,7 @@ void Player::inventoryUpdate() {
 	float mainStartY = 100;
 
 	auto mainRects = drawSlotGrid(inventory, 40, 10, mainStartX, mainStartY, spacing);
-	handleGridDrag(inventory, 40, mainRects, true);
+	handleGridDrag(inventory, 40, mainRects);
 
 	// crafting grid — right side
 	float craftStartX = screenW - windowBorder - 40 -

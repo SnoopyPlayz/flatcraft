@@ -74,6 +74,7 @@ void Player::updateMovement() {
 }
 
 void Player::updateBlockPlacingBreaking() {
+        if (inventoryOpen) return;
         // select hotbar slot
         for (int key = KEY_ONE; key <= KEY_NINE; key++) {
         	if (IsKeyPressed(key)) {

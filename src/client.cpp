@@ -29,7 +29,7 @@ ENetPeer *peer;
 std::vector<PlayerData> players;
 
 template<typename T>
-std::vector<T> unpackCompressedVecFromPacket(const ENetPacket& packet, uint64_t& startPtr) {
+static std::vector<T> unpackCompressedVecFromPacket(const ENetPacket& packet, uint64_t& startPtr) {
 	const uint64_t uncompressedSize = unpackPacket<uint64_t>(packet, startPtr, 1)[0];
 	std::vector<uint8_t> compressedData = unpackVecFromPacket<uint8_t>(packet, startPtr);
 	if (uncompressedSize == 0) return {};
@@ -144,7 +144,7 @@ void preparePacket(){
 std::vector<ENetPacket*> recevedPacketVec;
 std::mutex recevedPacketMtx;
 
-void clearQueuedReceivedPackets(){
+static void clearQueuedReceivedPackets(){
 	std::lock_guard<std::mutex> lock(recevedPacketMtx);
 	for (ENetPacket* packet : recevedPacketVec) {
 		if (packet != nullptr) {
@@ -167,6 +167,9 @@ void processRecevedPacket(){
 		        if (pd.peer == peer->connectID) {
 		                memcpy(player.inventory, pd.player.inventory, sizeof(player.inventory));
 		                player.health = pd.player.health;
+		                player.craftingResult = pd.player.craftingResult;
+		                for (int i = 0; i < CRAFTING_GRID_SIZE; i++)
+		                        player.craftingSlots[i] = pd.player.craftingSlots[i];
 		                //player.selectedBlock = pd.player.selectedBlock;
 		                break;
 		        }
@@ -216,7 +219,7 @@ void processRecevedPacket(){
 void updateClients(){
 }
 
-bool netowrkTick(){
+static bool netowrkTick(){
 	ENetEvent event;
 
 	{
