@@ -7,6 +7,7 @@
 #include "rayUtils.hpp"
 #include "client.hpp"
 #include "worldGen.hpp"
+#include "gameConfig.hpp"
 #include <chrono>
 #include <cstdint>
 #include <raylib.h>
@@ -61,7 +62,6 @@ int main(int argc, char *argv[]) {
 	worldGenInit();
 
 	using Clock = std::chrono::steady_clock;
-	constexpr auto fixedFrameTime = std::chrono::duration<double>(1.0 / 60.0);
 	constexpr auto maxFrameTime = std::chrono::duration<double>(0.1);
 	constexpr auto fpsUpdateWindow = std::chrono::seconds(1);
 
@@ -83,10 +83,10 @@ int main(int argc, char *argv[]) {
 			debug.addMessage("%R lagging " + std::to_string(accumulator.count()));
 		}
 
-		if (accumulator < fixedFrameTime) {
+		if (accumulator < FIXED_FRAME_TIME) {
 			continue;
 		}
-		accumulator -= fixedFrameTime;
+		accumulator -= FIXED_FRAME_TIME;
 		framesThisWindow++;
 
 		if (fpsWindowElapsed >= fpsUpdateWindow) {

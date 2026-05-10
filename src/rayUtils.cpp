@@ -91,12 +91,14 @@ void setAndLoadFont(const std::string& Path){
 	SetTextureFilter(fontSDF.texture, TEXTURE_FILTER_BILINEAR);
 }
 
+// position relative to screen 
 void drawTextSDF(const std::string& text, float posX, float posY, int fontSize, Color color){
 	BeginShaderMode(useShader("","shaders/sdf.fs"));
 	DrawTextEx(fontSDF, text.c_str(), {posX, posY}, fontSize, 0, color);
 	EndShaderMode();
 }
 
+// position relative to world
 void drawTextSDF3D(const std::string& text, float posX, float posY, int fontSize, Color color){
 	Shader worldShader = useShader("shaders/unussed.vs", "shaders/sdf.fs");
 	int worldOffsetLoc = GetShaderLocation(worldShader, "worldOffset");

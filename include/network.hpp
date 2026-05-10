@@ -63,6 +63,11 @@ struct BlockUpdatePacket{
 	Block block;
 };
 
+struct InventoryMovePacket{
+	uint8_t fromSlot;
+	uint8_t toSlot;
+};
+
 struct ChunkData{
 	Chunk chunk;
 	Vec3Int pos;

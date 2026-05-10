@@ -126,8 +126,8 @@ void preparePacket(){
 	addVecToPacket(packetBuffer, blockUpdates);
 	blockUpdates.clear();
 	addVecToPacket(packetBuffer, chunkRequests);
-	addVecToPacket(packetBuffer, pickedItemIds);
-	pickedItemIds.clear();
+	addVecToPacket(packetBuffer, inventoryMoves);
+	inventoryMoves.clear();
 }
 
 
@@ -152,6 +152,16 @@ void processRecevedPacket(){
 		players.clear();
 		players = unpackVecFromPacket<PlayerData>(*packet, ptrPos);
 
+		// player struct from server
+		for (const PlayerData& pd : players) {
+		        if (pd.peer == peer->connectID) {
+		                memcpy(player.inventory, pd.player.inventory, sizeof(player.inventory));
+		                player.health = pd.player.health;
+		                //player.selectedBlock = pd.player.selectedBlock;
+		                break;
+		        }
+		}
+
 		std::vector<ChunkData> chunks = unpackCompressedVecFromPacket<ChunkData>(*packet, ptrPos);
 
 		for (const ChunkData& chunkData : chunks) {
@@ -168,22 +178,21 @@ void processRecevedPacket(){
 
 		std::vector<Item> serverItems = unpackVecFromPacket<Item>(*packet, ptrPos);
 		{
-			// Build set of server item IDs for reconciliation
+                        // process the sent items from server
 			std::unordered_set<uint32_t> serverIds;
 			for (const Item& si : serverItems) {
 				serverIds.insert(si.id);
-				// Find existing item by ID
+                                // find item from server
 				auto it = std::find_if(items.begin(), items.end(),
 					[&](const Item& li) { return li.id == si.id; });
+
 				if (it != items.end()) {
-					// Update position (server physics may have moved it)
 					it->pos = si.pos;
 				} else {
-					// New item from server
 					items.push_back(si);
 				}
 			}
-			// Remove items not in server list (picked up or despawned)
+			// remove items not in server list (picked up or despawned)
 			std::erase_if(items, [&](const Item& li) {
 				return !serverIds.contains(li.id);
 			});

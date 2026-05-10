@@ -68,29 +68,51 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 	static std::unordered_map<ENetPeer *, std::vector<Vec3Int>> chunkRequests;
 	static std::vector<BlockUpdatePacket> blockUpdatesVec;
 	static std::vector<Item> itemsVec;
-	std::vector<PlayerData> playerDataVec;
-	playerDataVec.reserve(clients.size());
-
-	// convert map to vector and remove player = nullopt
-	for (const auto& [uniquePeers, uniquePlayer] : clients) {
-		if (!uniquePlayer){
-			std::cout << "unique player skipped" << std::endl;
-			continue;
-		}
-		playerDataVec.push_back({*uniquePlayer, uniquePeers->connectID});
-	}
-
 	const std::vector<Vec3Int> emptyChunkRequests;
 
-	// Item physics: gravity + ground collision
+	// Item physics. gravity + ground collision
 	for (Item& item : itemsVec) {
-		item.velocity.y -= 0.3f;
-		item.pos.y += item.velocity.y;
-		Vec3Int blockUnder = toVec3Int(item.pos / (float)BLOCK_SIZE);
-		if (serverMap.getBlock(blockUnder) != AIR) {
-			item.pos.y = (float)(blockUnder.y + 1) * BLOCK_SIZE;
-			item.velocity = {0, 0, 0};
-		}
+	        item.velocity.y -= 0.3f;
+	        item.pos.y += item.velocity.y;
+	        Vec3Int blockUnder = toVec3Int(item.pos / (float)BLOCK_SIZE);
+	        if (serverMap.getBlock(blockUnder) != AIR) {
+	                item.pos.y = (float)(blockUnder.y + 1) * BLOCK_SIZE;
+	                item.velocity = {0, 0, 0};
+	        }
+	}
+
+	// Item pickup
+	std::erase_if(itemsVec, [&](const Item& item) {
+	        for (auto& [peer, clientP] : clients) {
+	                if (!clientP) continue;
+	                Player& p = *clientP;
+	                Vector3 itemCenter = item.pos;
+	                itemCenter.x += (float)BLOCK_SIZE / 2.0f;
+	                itemCenter.z += (float)BLOCK_SIZE / 2.0f;
+	                float dist = Vector3Distance(itemCenter, p.pos * (float)BLOCK_SIZE);
+	                if (dist < (float)BLOCK_SIZE * 1.5f) {
+	                        // Add to empty inventory slot
+	                        for (int slot = 0; slot < PLAYER_INVENTORY_SIZE; slot++) {
+	                                if (p.inventory[slot] == AIR) {
+	                                        p.inventory[slot] = (uint8_t)item.b;
+	                                        break;
+	                                }
+	                        }
+	                        return true;
+	                }
+	        }
+	        return false;
+	});
+
+        // get a vector of valid players to send to clients
+	std::vector<PlayerData> playerDataVec;
+	playerDataVec.reserve(clients.size());
+	for (const auto& [uniquePeers, uniquePlayer] : clients) {
+	        if (!uniquePlayer){
+	                std::cout << "unique player skipped" << std::endl;
+	                continue;
+	        }
+	        playerDataVec.push_back({*uniquePlayer, uniquePeers->connectID});
 	}
 
 	for (const auto& [peer, clientP] : clients) {
@@ -141,29 +163,55 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 
 				auto it = clients.find(event.peer);
 				assert(it != clients.end());
-				it->second = player;
+				if (!it->second) {
+				        // first update get full player state
+				        it->second = player;
+				} else {
+                                        // subsequent updates only update the changing state not inventory
+				        it->second->pos = player.pos;
+				        it->second->velocity = player.velocity;
+				        it->second->selectedBlock = player.selectedBlock;
+				        it->second->health = player.health;
+				}
 
 				for (const BlockUpdatePacket& blockUpdate : blockUpdates) {
-					// Spawn dropped item if a block was broken (server decides what was there)
-					if (blockUpdate.block == AIR) {
-						Block droppedBlock = serverMap.getBlock(blockUpdate.pos);
-						if (droppedBlock != AIR) {
-							Vector3 worldPos = blockUpdate.pos.toVec3() * (float)BLOCK_SIZE;
-							itemsVec.push_back({nextItemId++, droppedBlock, worldPos, {0, 0, 0}});
-						}
-					}
-					serverMap.setBlock(blockUpdate.pos, blockUpdate.block);
-					blockUpdatesVec.push_back(blockUpdate);
+				        // Spawn dropped item if a block was broken (server decides what was there)
+				        if (blockUpdate.block == AIR) {
+				                Block droppedBlock = serverMap.getBlock(blockUpdate.pos);
+				                if (droppedBlock != AIR) {
+				                        Vector3 worldPos = blockUpdate.pos.toVec3() * (float)BLOCK_SIZE;
+				                        itemsVec.push_back({nextItemId++, droppedBlock, worldPos, {0, 0, 0}});
+				                }
+				        } else {
+				                // check if player has block in inventory
+				                Player& p = *it->second;
+				                int foundSlot = -1;
+				                for (int slot = 0; slot < PLAYER_INVENTORY_SIZE; slot++) {
+				                        if (p.inventory[slot] == (uint8_t)blockUpdate.block) {
+				                                foundSlot = slot;
+				                                break;
+				                        }
+				                }
+				                if (foundSlot == -1) {
+				                        blockUpdatesVec.push_back({blockUpdate.pos, AIR});
+				                        continue;
+				                }
+				                p.inventory[foundSlot] = AIR;
+				        }
+				        serverMap.setBlock(blockUpdate.pos, blockUpdate.block);
+				        blockUpdatesVec.push_back(blockUpdate);
 				}
 
 				chunkRequests[event.peer] = unpackVecFromPacket<Vec3Int>(*(event.packet), ptrPos);
 
-				// Unpack picked-up item IDs from client
-				std::vector<uint32_t> pickedIds = unpackVecFromPacket<uint32_t>(*(event.packet), ptrPos);
-				if (!pickedIds.empty()) {
-					std::erase_if(itemsVec, [&](const Item& item) {
-						return std::find(pickedIds.begin(), pickedIds.end(), item.id) != pickedIds.end();
-					});
+				std::vector<InventoryMovePacket> inventoryMoves = unpackVecFromPacket<InventoryMovePacket>(*(event.packet), ptrPos);
+				for (const auto& move : inventoryMoves) {
+					if (move.fromSlot < PLAYER_INVENTORY_SIZE &&
+					    move.toSlot < PLAYER_INVENTORY_SIZE &&
+					    it->second->inventory[move.fromSlot] != AIR) {
+						std::swap(it->second->inventory[move.fromSlot],
+						          it->second->inventory[move.toSlot]);
+					}
 				}
 
 				enet_packet_destroy(event.packet);

@@ -1,6 +1,7 @@
 #include "player.hpp"
 #include "camera.hpp"
 #include "debug.hpp"
+#include "gameConfig.hpp"
 #include "item.hpp"
 #include "map.hpp"
 #include "network.hpp"
@@ -15,102 +16,11 @@
 
 Player player;
 std::vector<BlockUpdatePacket> blockUpdates;
-
-bool inventoryOpen = false;
+std::vector<InventoryMovePacket> inventoryMoves;
 
 Vector3 getPlayerTopLeft() {
         return {player.pos.x - 0.5f, player.pos.y + 1.0f, player.pos.z - 0.5f};
 }
-
-int in = 0;
-void Player::inventoryUpdate() {
-        const float windowBorder = 50;
-        const float windowRoundess = 0.1;
-        const int rowSize = 10; // amount of elements in a row
-
-        const int rowStart = 100;
-
-        if (IsKeyPressed(KEY_E)) {
-                inventory[in++] = (Block)(STONE);
-                inventory[in++] = (Block)(GRASS);
-                inventory[in++] = (Block)(CRAFTING_TABLE);
-                std::cout << "inventory update " + std::to_string(in) << std::endl;
-                inventoryOpen = !inventoryOpen;
-        }
-        if (!inventoryOpen) {
-                return;
-        }
-
-        DrawRectangleRounded((Rectangle){windowBorder, windowBorder,
-                        (float)GetScreenWidth() - windowBorder * 2,
-                        (float)GetScreenHeight() - windowBorder * 2},
-                        windowRoundess, 0, WHITE);
-
-        int y = 100;
-        int x = 1;
-        // drawGrid and draw SelectedBlock
-        static bool selected = false;
-        static Block selectedBlock = AIR;
-        static int lastPos;
-
-        for (int i{}; i < PLAYER_INVENTORY_SIZE; i++) {
-                float pixelPosX = 1.2 * BLOCK_SIZE * x;
-
-                if (x > rowSize || pixelPosX + BLOCK_SIZE > GetScreenWidth()) {
-                        x = 1;
-                        y += 100;
-                }
-
-                pixelPosX = 1.2 * BLOCK_SIZE * x;
-
-                // item background
-                const float itemGridOffset = 5;
-                DrawRectangleRounded((Rectangle){pixelPosX - itemGridOffset,
-                                (float)y - itemGridOffset,
-                                BLOCK_SIZE + itemGridOffset * 2,
-                                BLOCK_SIZE + itemGridOffset * 2},
-                                windowRoundess, 1, DARKGRAY);
-
-                x++;
-
-                // draw item Tex
-                if (inventory[i] != AIR) {
-                        DrawTexture(useTexture(getEnumName((Block)inventory[i]) + ".png"),
-                                        pixelPosX, y, WHITE);
-                }
-
-                // colision with cursor
-                if (AABBColBox2d(pixelPosX, y, BLOCK_SIZE, GetMouseX(), GetMouseY(), 1)) {
-                        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && inventory[i] != AIR) {
-                                selected = true;
-                                selectedBlock = (Block)inventory[i];
-                                inventory[i] = AIR;
-                                lastPos = i;
-                        }
-
-                        if (selected) {
-                                if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-                                        inventory[lastPos] = (Block)inventory[i];
-                                        inventory[i] = selectedBlock;
-                                        selected = false;
-                                        selectedBlock = AIR;
-                                }
-                        }
-
-                        DrawRectangle(pixelPosX, y, BLOCK_SIZE, BLOCK_SIZE,
-                                        ColorAlpha(GRAY, 0.5));
-                }
-
-                // draw selectedBlock
-                if (selected) {
-                        DrawTexture(useTexture(getEnumName(selectedBlock) + ".png"),
-                                        GetMouseX() - BLOCK_SIZE * 0.5,
-                                        GetMouseY() - BLOCK_SIZE * 0.5, WHITE);
-                }
-        }
-}
-
-void Player::updateUI() { inventoryUpdate(); }
 
 void Player::updateMovement() {
         const float playerRunningSpeed = 0.18;
@@ -120,15 +30,15 @@ void Player::updateMovement() {
         const float GRAVITY = 0.05f;
         const float JUMP_VELOCITY = 0.25f;
 
-        // Ground check: block directly below player feet
+        // ground check
         bool onGround = map.getBlock(toVec3Int(pos)) != AIR;
 
-        // Jump impulse (one-shot, only when on ground)
+        // jump
         if (onGround && IsKeyPressed(KEY_SPACE)) {
                 velocity.y = JUMP_VELOCITY;
         }
 
-        // Horizontal movement only (Y handled separately via gravity/jump)
+        // horizontal movement
         Vector3 vel = {0, 0, 0};
         vel.x = IsKeyDown(KEY_D) - IsKeyDown(KEY_A);
         vel.z = IsKeyDown(KEY_S) - IsKeyDown(KEY_W);
@@ -143,19 +53,17 @@ void Player::updateMovement() {
                 horizTarget.z *= playerSpeed;
         }
 
-        // Lerp horizontal velocity independently from vertical
+        // lerp horizontal
         velocity.x = Lerp(velocity.x, horizTarget.x, PLAYER_ACCELERATION_SPEED);
         velocity.z = Lerp(velocity.z, horizTarget.z, PLAYER_ACCELERATION_SPEED);
 
-        // Gravity: only apply when not on ground
-        if (!onGround) {
-                velocity.y -= GRAVITY;
-        } else if (velocity.y < 0) {
-                velocity.y = 0; // Stop downward velocity when landing
-        }
+        // apply gravity
+        if (!onGround) velocity.y -= GRAVITY;
+        
 
         debug.addMessage("velocity: " + vector3ToString(velocity));
 
+        // colision detection
         pos.x += velocity.x;
         pos.x = physicsReaction(pos, velocity.x, 0);
 
@@ -167,7 +75,7 @@ void Player::updateMovement() {
 }
 
 void Player::updateBlockPlacingBreaking() {
-        // Select block
+        // select block
         for (int key = KEY_ZERO; key <= KEY_NINE; key++) {
                 if (IsKeyPressed(key)) {
                         selectedBlock = static_cast<Block>(key - KEY_ZERO);
@@ -190,8 +98,7 @@ void Player::updateBlockPlacingBreaking() {
                         (float)z * BLOCK_SIZE};
                 const Color blockPreviewTint = ColorAlpha(DARKGRAY, 0.4f);
                 queueDraw3D(blockPreviewPos.y, [blockPreviewPos, blockPreviewTint]() {
-                                DrawRectangle((int)blockPreviewPos.x, (int)blockPreviewPos.z, BLOCK_SIZE,
-                                                BLOCK_SIZE, blockPreviewTint);
+                                DrawRectangle((int)blockPreviewPos.x, (int)blockPreviewPos.z, BLOCK_SIZE, BLOCK_SIZE, blockPreviewTint); 
                                 });
         }
 
@@ -205,22 +112,16 @@ void Player::updateBlockPlacingBreaking() {
                 }
         }
 
-        // --- Timed block breaking (right mouse button) ---
-        constexpr float BLOCK_BREAK_TIME = 1.0f; // seconds to break a block
-        constexpr float FRAME_DELTA = 1.0f / 60.0f;
+        // timed block breaking
+        constexpr float BLOCK_BREAK_TIME = 1.0f; // in sec
 
         Vec3Int currentTarget = topBlock.has_value()
                 ? Vec3Int{x, topBlock->y, z}
                 : Vec3Int{x, 0, z};
 
-        if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
-                blockBreakingProgress = 0.0f;
-                blockBreakingPos = currentTarget;
-        }
-
         if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
                 if (blockBreakingPos == currentTarget) {
-                        blockBreakingProgress += FRAME_DELTA / BLOCK_BREAK_TIME;
+                        blockBreakingProgress += FIXED_FRAME_TIME.count() / BLOCK_BREAK_TIME;
                         if (blockBreakingProgress >= 1.0f) {
                                 map.setBlock(blockBreakingPos, AIR);
                                 blockUpdates.push_back({blockBreakingPos, AIR});
@@ -232,23 +133,17 @@ void Player::updateBlockPlacingBreaking() {
                 }
         } else {
                 blockBreakingProgress = 0.0f;
+                blockBreakingPos = currentTarget;
         }
 
         // Draw breaking overlay texture
         if (blockBreakingProgress > 0.0f && IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
-                const Vector3 breakBlockWorldPos = {
-                        (float)blockBreakingPos.x * BLOCK_SIZE,
-                        (float)blockBreakingPos.y * BLOCK_SIZE,
-                        (float)blockBreakingPos.z * BLOCK_SIZE
-                };
+                const Vector3 breakBlockWorldPos = blockBreakingPos.toVec3() * (float)BLOCK_SIZE;
                 const Texture2D breakTex = useTexture("block_breaking.png");
                 const float alpha = blockBreakingProgress;
                 queueDraw3D(breakBlockWorldPos.y + 0.01,
                         [breakTex, breakBlockWorldPos, alpha]() {
-                                DrawTextureWithRot(breakTex,
-                                        breakBlockWorldPos.x,
-                                        breakBlockWorldPos.z,
-                                        0, ColorAlpha(WHITE, alpha), 1.0f);
+                                DrawTextureWithRot(breakTex, breakBlockWorldPos.x, breakBlockWorldPos.z, 0, ColorAlpha(WHITE, alpha), 1.0f);
                         });
         }
 
@@ -275,7 +170,6 @@ void Player::update() {
 
         updateMovement();
         updateBlockPlacingBreaking();
-        pickUpItems();
         // Draw player
         Vector3 playerCenter = pos;
         playerCenter.x -= 0.5;
@@ -284,8 +178,7 @@ void Player::update() {
         const Vector3 playerCenterWorld = playerCenter * BLOCK_SIZE;
         const Texture2D playerTexture = useTexture("player.png");
         queueDraw3D(playerCenterWorld.y, [playerTexture, playerCenterWorld]() {
-                        DrawTextureWithRot(playerTexture, playerCenterWorld.x, playerCenterWorld.z,
-                                        0, WHITE, 1.0f);
+                        DrawTextureWithRot(playerTexture, playerCenterWorld.x, playerCenterWorld.z, 0, WHITE, 1.0f);
                         });
 
         debug.addMessage("Player pos: " + vector3ToString(pos));

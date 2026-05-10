@@ -13,5 +13,4 @@ struct Item{
 
 extern std::vector<Item> items;
 extern std::vector<uint32_t> pickedItemIds;
-void pickUpItems(Vector3 pos = player.pos);
 void drawItems();

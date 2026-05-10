@@ -7,6 +7,7 @@
 #include <vector>
 
 extern std::vector<BlockUpdatePacket> blockUpdates;
+extern std::vector<InventoryMovePacket> inventoryMoves;
 extern const float PLAYER_ACCELERATION_SPEED;
 
 const int PLAYER_INVENTORY_SIZE = 40;
