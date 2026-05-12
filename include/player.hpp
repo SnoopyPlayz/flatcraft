@@ -23,7 +23,7 @@ class Player{
 		void updateUI();
 		void update();
 		Vector3 pos = {0, 55, 0};
-		Block selectedBlock = GRASS;
+		Block selectedBlock = AIR;
 		int selectedSlot = 0;
 		Vector3 velocity = {0, 0, 0};
 		uint8_t inventory[PLAYER_INVENTORY_SIZE];

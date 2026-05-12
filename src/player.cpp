@@ -8,6 +8,7 @@
 #include "physics.hpp"
 #include "rayUtils.hpp"
 #include "vector.hpp"
+#include "rayUtils.hpp"
 #include <cmath>
 #include <iostream>
 #include <raylib.h>
@@ -194,6 +195,12 @@ void Player::update() {
         const Texture2D playerTexture = useTexture("player.png");
         queueDraw3D(playerCenterWorld.y, [playerTexture, playerCenterWorld]() {
                         DrawTextureWithRot(playerTexture, playerCenterWorld.x, playerCenterWorld.z, 0, WHITE, 1.0f);
+                        });
+
+	// draw held block
+	const Texture2D selectedBlockTex = useTexture(getEnumName((Block)inventory[selectedSlot]) + ".png");
+        queueDraw3D(playerCenterWorld.y + 0.1, [selectedBlockTex, playerCenterWorld]() {
+                        DrawTextureWithRot(selectedBlockTex, playerCenterWorld.x, playerCenterWorld.z, 0, WHITE, 0.3f);
                         });
 
         debug.addMessage("Player pos: " + vector3ToString(pos));
