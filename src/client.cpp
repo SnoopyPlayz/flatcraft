@@ -73,7 +73,7 @@ void drawClients(){
 			if (player.peer == oldPlayer.peer){
 				playerExists = true;
 				Player &p = oldPlayer.player;
-				Vector3 drawPos = p.pos ;
+				Vector3 drawPos = p.pos;
 				drawPos.x -= 0.5;
 				drawPos.y += 0.01;
 				drawPos.z -= 0.5;
@@ -99,6 +99,8 @@ void drawClients(){
 
 				p.pos += player.player.velocity;
 				p.pos = Vector3Lerp(p.pos, player.player.pos, lerpAmount);
+				// comment this
+				p.pos.y = player.player.pos.y;
 				if (player.player.velocity == (Vector3){0,0,0}) {
 					p.pos = player.player.pos;
 				}

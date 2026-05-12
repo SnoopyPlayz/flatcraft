@@ -34,8 +34,8 @@ void initRecipes() {
 	// 2x2 STONE -> CRAFTING_TABLE (test recipe)
 	CraftingKey key;
 	key.fill((uint8_t)AIR);
-	key[0] = STONE; key[1] = STONE;
-	key[3] = STONE; key[4] = STONE;
+	key[0] = WOOD; key[1] = WOOD;
+	key[3] = WOOD; key[4] = WOOD;
 	recipes[key] = CRAFTING_TABLE;
 }
 

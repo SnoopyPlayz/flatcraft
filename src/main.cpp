@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 	setAndLoadFont("Roboto-VariableFont_wdth,wght.ttf");
 	map.createShadowTexture();
 
-	worldGenInit();
+	map.worldGenInit();
 
 	using Clock = std::chrono::steady_clock;
 	constexpr auto maxFrameTime = std::chrono::duration<double>(0.1);
