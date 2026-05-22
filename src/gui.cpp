@@ -95,7 +95,18 @@ static void handleGridDrag(uint8_t* slots, int slotCount,
 
 		// drop / swap
 		if (drag.active && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-			if (drag.sourceArray == slots && drag.sourceSlot == i) {
+			if (drag.sourceArray == nullptr) {
+				// drag from crafting output
+				if (slots[i] == AIR) {
+					slots[i] = (uint8_t)drag.block;
+					for (int j = 0; j < CRAFTING_GRID_SIZE; j++)
+						player.craftingSlots[j] = AIR;
+					uint8_t toOffset = (slots == player.craftingSlots) ? SLOT_CRAFT_OFFSET : 0;
+					inventoryMoves.push_back({SLOT_CRAFT_OUTPUT, (uint8_t)(toOffset + i)});
+				} else {
+					player.craftingResult = drag.block;
+				}
+			} else if (drag.sourceArray == slots && drag.sourceSlot == i) {
 				slots[i] = drag.block; // restore to same slot
 			} else {
 				Block temp = (Block)slots[i];
@@ -124,11 +135,31 @@ static void cancelDragIfReleased() {
 	if (drag.active && !IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
 		if (drag.sourceArray) {
 			drag.sourceArray[drag.sourceSlot] = drag.block;
+		} else {
+			player.craftingResult = drag.block;
 		}
 		drag.active = false;
 		drag.block = AIR;
 		drag.sourceSlot = -1;
 		drag.sourceArray = nullptr;
+	}
+}
+
+// draw hearts above hotbar
+static void drawHearts(float hotbarStartX, float hotbarStartY) {
+	const float heartScale = 0.5f;
+	const float heartSize = BLOCK_SIZE * heartScale;
+	const float spacing = 4;
+	float startX = hotbarStartX;
+	float startY = hotbarStartY - heartSize - 8;
+
+	const Texture2D heartTex = useTexture("hart.png");
+
+	for (int i = 0; i < 10; i++) {
+		Color tint = (i < player.health) ? WHITE : ColorAlpha(GRAY, 0.3f);
+		Rectangle dest = {startX + i * (heartSize + spacing), startY, heartSize, heartSize};
+		DrawTexturePro(heartTex, (Rectangle){0, 0, (float)heartTex.width, (float)heartTex.height},
+			dest, (Vector2){0, 0}, 0, tint);
 	}
 }
 
@@ -141,6 +172,8 @@ static void drawHotbar() {
 	float totalWidth = 10 * BLOCK_SIZE + 9 * spacing;
 	float startX = (screenW - totalWidth) / 2.0f;
 	float startY = screenH - BLOCK_SIZE - 12;
+
+	drawHearts(startX, startY);
 
 	auto rects = drawSlotGrid(player.inventory, 10, 10, startX, startY, spacing);
 	handleGridDrag(player.inventory, 10, rects);
@@ -166,21 +199,14 @@ static void drawCraftingGrid(float craftStartX, float craftStartY, float spacing
 		GetMouseX(), GetMouseY(), 1);
 	drawSlot(outputX, outputY, player.craftingResult, outputHovered);
 
-	// click output to collect result
+	// pickup from output slot (drag or click)
 	if (outputHovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
 			player.craftingResult != AIR && !drag.active) {
-		for (int i = 0; i < PLAYER_INVENTORY_SIZE; i++) {
-			if (player.inventory[i] == AIR) {
-				// local processing for snappy UI
-				player.inventory[i] = (uint8_t)player.craftingResult;
-				for (int j = 0; j < CRAFTING_GRID_SIZE; j++)
-					player.craftingSlots[j] = AIR;
-				player.craftingResult = AIR;
-				// tell server to validate and process
-				inventoryMoves.push_back({SLOT_CRAFT_OUTPUT, (uint8_t)i});
-				break;
-			}
-		}
+		drag.active = true;
+		drag.block = player.craftingResult;
+		drag.sourceSlot = SLOT_CRAFT_OUTPUT;
+		drag.sourceArray = nullptr;
+		player.craftingResult = AIR;
 	}
 
 	// arrow icon hint between grid and output

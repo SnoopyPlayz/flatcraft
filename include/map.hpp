@@ -21,6 +21,9 @@ enum Block {
 	CRAFTING_TABLE,
 	WOOD,
 	LEAVES,
+        SAND,
+        SANDSTONE,
+        GRAVEL,
 };
 
 class Map {
@@ -37,6 +40,7 @@ public:
 	void worldGenInit();
 	void genChunk(Vec3Int chunkPos);
 	void genTree(Vec3Int treePos);
+        void genPatch(Vec3Int sandPos, Block blockType);
 
 	void markShadowAffectedChunksChanged(Vec3Int chunkPos);
 	void createShadowTexture();

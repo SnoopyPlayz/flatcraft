@@ -1,5 +1,6 @@
 #include "camera.hpp"
 #include "item.hpp"
+#include "pig.hpp"
 #include "map.hpp"
 #include "player.hpp"
 #include "network.hpp"
@@ -104,6 +105,7 @@ int main(int argc, char *argv[]) {
 		playerCamera.update();
 		map.createShadowsForMap();
 		drawItems();
+		drawPigs();
 
 		preparePacket();
 		processRecevedPacket();

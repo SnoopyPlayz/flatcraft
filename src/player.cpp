@@ -30,8 +30,10 @@ void Player::updateMovement() {
         const float GRAVITY = 0.05f;
         const float JUMP_VELOCITY = 0.25f;
 
-        // ground check
-        bool onGround = map.getBlock(toVec3Int(pos)) != AIR;
+        // ground check (treat unloaded chunks as solid ground)
+        Vec3Int blockUnder = toVec3Int(pos);
+        Vec3Int chunkUnder = blockUnder / CHUNK_SIZE;
+        bool onGround = map.validChunk(chunkUnder) ? (map.getBlock(blockUnder) != AIR) : true;
 
         // jump
         if (onGround && IsKeyPressed(KEY_SPACE)) {

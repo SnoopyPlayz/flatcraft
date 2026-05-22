@@ -22,14 +22,14 @@ class Player{
 	public:
 		void updateUI();
 		void update();
-		Vector3 pos = {0, 55, 0};
+		Vector3 pos = {0, 21, 0};
 		Block selectedBlock = AIR;
 		int selectedSlot = 0;
 		Vector3 velocity = {0, 0, 0};
 		uint8_t inventory[PLAYER_INVENTORY_SIZE];
 		uint8_t craftingSlots[9] = {};
 		Block craftingResult = AIR;
-		int health = 20;
+		int health = 10;
 		// Block breaking state
 		Vec3Int blockBreakingPos = {0, 0, 0};
 		float blockBreakingProgress = 0.0f;

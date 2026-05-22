@@ -37,6 +37,11 @@ void initRecipes() {
 	key[0] = WOOD; key[1] = WOOD;
 	key[3] = WOOD; key[4] = WOOD;
 	recipes[key] = CRAFTING_TABLE;
+
+	key.fill((uint8_t)AIR);
+	key[0] = SAND; key[1] = SAND;
+	key[3] = SAND; key[4] = SAND;
+	recipes[key] = SANDSTONE;
 }
 
 Block lookupRecipe(const uint8_t slots[9]) {

@@ -19,13 +19,16 @@
 #include <stdio.h>
 #include <lz4.h>
 #include "item.hpp"
+#include "pig.hpp"
+#include "pathfinding.hpp"
 #include "crafting.hpp"
+#include "debug.hpp"
 
 // server globals
 ENetAddress address;
 ENetHost *server;
 Map serverMap;
-static uint32_t nextItemId = 0;
+static uint32_t nextEntityId = 0;
 
 template<typename T>
 static void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, const std::vector<T>& dataVec) {
@@ -53,7 +56,9 @@ static void addCompressedVecToPacket(std::vector<uint8_t>& packetBuffer, const s
 static void addToPacketForEachPeer(std::vector<uint8_t>& packetBuffer, const std::vector<Vec3Int>& peerChunkRequests, const std::vector<BlockUpdatePacket>& blockUpdatesVec, const std::vector<Item>& itemsVec) {
 	std::vector<ChunkData> chunksVec;
 	for (const Vec3Int& chunkPos: peerChunkRequests) {
-		std::cout << "chunk received: " << chunkPos.x << " " << chunkPos.y << " " << chunkPos.z << std::endl;
+                if (debug.enabled) {
+		        std::cout << "chunk received: " << chunkPos.x << " " << chunkPos.y << " " << chunkPos.z << std::endl;
+                }
 		Chunk& c = serverMap.findOrCreateChunk(chunkPos);
 		if (!c.generated){// this is torture
 			serverMap.genChunk(chunkPos);
@@ -73,6 +78,81 @@ static void tickItemPhysics(std::vector<Item>& itemsVec) {
 		if (serverMap.getBlock(blockUnder) != AIR) {
 			item.pos.y = (float)(blockUnder.y + 1) * BLOCK_SIZE;
 			item.velocity = {0, 0, 0};
+		}
+	}
+}
+
+struct PigAI {
+	std::vector<Vec3Int> path;
+	size_t pathIndex = 0;
+};
+
+static void tickPigPhysics(std::vector<Pig>& pigVec, const std::unordered_map<ENetPeer*, std::optional<Player>>& clients) {
+	static std::unordered_map<uint32_t, PigAI> pigAI;
+
+	// find target player for pathfinding
+	Vector3 targetWorldPos = {0, 0, 0};
+	bool hasTarget = false;
+	for (const auto& [peer, clientP] : clients) {
+		if (!clientP) continue;
+		targetWorldPos = clientP->pos * (float)BLOCK_SIZE;
+		hasTarget = true;
+		break;
+	}
+
+	static int pathRecalcCounter = 0;
+	pathRecalcCounter++;
+	const bool recalcPath = (pathRecalcCounter % 30 == 0);
+
+	for (Pig& pig : pigVec) {
+		// gravity
+		pig.velocity.y -= 0.3f;
+		pig.pos.y += pig.velocity.y;
+		Vec3Int blockUnder = toVec3Int(pig.pos / (float)BLOCK_SIZE);
+		if (serverMap.getBlock(blockUnder) != AIR) {
+			pig.pos.y = (float)(blockUnder.y + 1) * BLOCK_SIZE;
+			pig.velocity.y = 0;
+		}
+
+		// pathfinding toward player
+		if (!hasTarget) continue;
+
+		PigAI& ai = pigAI[pig.id];
+
+		if (recalcPath || ai.path.empty()) {
+			Vec3Int pigBlock = toVec3Int(pig.pos / (float)BLOCK_SIZE);
+			Vec3Int targetBlock = toVec3Int(targetWorldPos / (float)BLOCK_SIZE);
+			ai.path = findPath(serverMap, pigBlock, targetBlock);
+			ai.pathIndex = 0;
+		}
+
+		if (ai.path.empty() || ai.pathIndex >= ai.path.size()) continue;
+
+		Vec3Int waypoint = ai.path[ai.pathIndex];
+		Vector3 waypointWorld = waypoint.toVec3() * (float)BLOCK_SIZE;
+		waypointWorld.x += (float)BLOCK_SIZE / 2.0f;
+		waypointWorld.z += (float)BLOCK_SIZE / 2.0f;
+
+		// jump to step up 1 block
+		if (pig.velocity.y == 0.0f && waypointWorld.y > pig.pos.y + 1.0f) {
+			pig.velocity.y = 7.0f;
+		}
+
+		waypointWorld.y = pig.pos.y; // ignore waypoint Y for horizontal movement
+
+		float dx = waypointWorld.x - pig.pos.x;
+		float dz = waypointWorld.z - pig.pos.z;
+		float dist = std::sqrt(dx * dx + dz * dz);
+
+		const float pigSpeed = 1.5f;
+		pig.rotation = std::atan2(dz, dx) * RAD2DEG;
+		if (dist < pigSpeed) {
+			pig.pos.x = waypointWorld.x;
+			pig.pos.z = waypointWorld.z;
+			ai.pathIndex++;
+		} else {
+			pig.pos.x += (dx / dist) * pigSpeed;
+			pig.pos.z += (dz / dist) * pigSpeed;
 		}
 	}
 }
@@ -137,18 +217,41 @@ static void handleReceivePacket(
 
 	std::vector<BlockUpdatePacket> blockUpdates = unpackVecFromPacket<BlockUpdatePacket>(*packet, ptrPos);
 
+	static std::unordered_map<ENetPeer*, float> fallStartY;
+	static std::unordered_map<ENetPeer*, bool> wasOnGround;
+
 	auto it = clients.find(peer);
 	assert(it != clients.end());
 	if (!it->second) {
 		it->second = player;
 	} else {
-		it->second->pos = player.pos;
-		it->second->velocity = player.velocity;
-		it->second->selectedBlock = player.selectedBlock;
-		it->second->selectedSlot = player.selectedSlot;
-		it->second->health = player.health;
-		it->second->blockBreakingPos = player.blockBreakingPos;
-		it->second->blockBreakingProgress = player.blockBreakingProgress;
+		Player& serverPlayer = *it->second;
+
+		// fall damage: detect landing transition
+		serverPlayer.pos = player.pos;
+		Vec3Int blockUnder = toVec3Int(serverPlayer.pos);
+		Vec3Int chunkUnder = blockUnder / CHUNK_SIZE;
+		bool onGround = serverMap.validChunk(chunkUnder) ? (serverMap.getBlock(blockUnder) != AIR) : true;
+
+		if (!onGround) {
+			fallStartY[peer] = std::max(fallStartY[peer], serverPlayer.pos.y);
+		}
+		if (!wasOnGround[peer] && onGround) {
+			const float FALL_THRESHOLD = 3.0f;
+			float fallDist = fallStartY[peer] - serverPlayer.pos.y;
+			if (fallDist > FALL_THRESHOLD) {
+				serverPlayer.health -= (int)(fallDist - FALL_THRESHOLD);
+				if (serverPlayer.health < 0) serverPlayer.health = 0;
+			}
+			fallStartY[peer] = serverPlayer.pos.y;
+		}
+		wasOnGround[peer] = onGround;
+
+		serverPlayer.velocity = player.velocity;
+		serverPlayer.selectedBlock = player.selectedBlock;
+		serverPlayer.selectedSlot = player.selectedSlot;
+		serverPlayer.blockBreakingPos = player.blockBreakingPos;
+		serverPlayer.blockBreakingProgress = player.blockBreakingProgress;
 	}
 
 	for (const BlockUpdatePacket& blockUpdate : blockUpdates) {
@@ -156,7 +259,7 @@ static void handleReceivePacket(
 			Block droppedBlock = serverMap.getBlock(blockUpdate.pos);
 			if (droppedBlock != AIR) {
 				Vector3 worldPos = blockUpdate.pos.toVec3() * (float)BLOCK_SIZE;
-				itemsVec.push_back({nextItemId++, droppedBlock, worldPos, {0, 0, 0}});
+				itemsVec.push_back({nextEntityId++, droppedBlock, worldPos, {0, 0, 0}});
 			}
 		} else {
 			Player& p = *it->second;
@@ -208,17 +311,28 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 	static std::unordered_map<ENetPeer *, std::vector<Vec3Int>> chunkRequests;
 	static std::vector<BlockUpdatePacket> blockUpdatesVec;
 	static std::vector<Item> itemsVec;
+	static std::vector<Pig> pigVec;
 	const std::vector<Vec3Int> emptyChunkRequests;
 
+	// spawn test pig at first player position
+	if (pigVec.empty()) {
+		for (const auto& [peer, clientP] : clients) {
+			if (!clientP) continue;
+			Vector3 worldPos = clientP->pos * (float)BLOCK_SIZE;
+			pigVec.push_back({nextEntityId++, worldPos, {0, 0, 0}, 0.0f});
+			break;
+		}
+	}
+
 	tickItemPhysics(itemsVec);
+	tickPigPhysics(pigVec, clients);
 	tickItemPickup(itemsVec, clients);
 
 	std::vector<PlayerData> playerDataVec = buildPlayerDataVec(clients);
 
 	for (const auto& [peer, clientP] : clients) {
 		if (!clientP) {
-			std::cout << "skipping client with id: " << peer->connectID
-			          << " because it has no player data" << std::endl;
+			std::cout << "skipping client with id: " << peer->connectID << " because it has no player data" << std::endl;
 		}
 
 		std::vector<uint8_t> packetBuffer;
@@ -228,6 +342,7 @@ void networkTick(std::unordered_map<ENetPeer *, std::optional<Player>>& clients)
 		const std::vector<Vec3Int>& peerChunkRequests =
 		    requestIt != chunkRequests.end() ? requestIt->second : emptyChunkRequests;
 		addToPacketForEachPeer(packetBuffer, peerChunkRequests, blockUpdatesVec, itemsVec);
+		addVecToPacket(packetBuffer, pigVec);
 
 		ENetPacket* packet = enet_packet_create(packetBuffer.data(), packetBuffer.size(),
 		                                        ENET_PACKET_FLAG_RELIABLE);

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <mutex>
 #include <lz4.h>
+#include <ranges>
 #include <stdio.h>
 #include <stop_token>
 #include <string>
@@ -15,6 +16,7 @@
 #include <vector>
 #include "debug.hpp"
 #include "item.hpp"
+#include "pig.hpp"
 #include "map.hpp"
 #include "network.hpp"
 #include "player.hpp"
@@ -85,6 +87,11 @@ void drawClients(){
 						DrawTextureWithRot(playerTexture, drawPosWorld.x, drawPosWorld.z, 0, WHITE, 1.0f);
 					}
 				);
+
+                                const Texture2D selectedBlockTex = useTexture(getEnumName((Block)player.player.inventory[player.player.selectedSlot]) + ".png");
+                                queueDraw3D(drawPosWorld.y + 1.1, [selectedBlockTex, drawPosWorld]() {
+                                                DrawTextureWithRot(selectedBlockTex, drawPosWorld.x, drawPosWorld.z, 0, WHITE, 0.3f);
+                                                });
 
 				// draw breaking overlay for other players
 				if (player.player.blockBreakingProgress > 0.0f) {
@@ -210,6 +217,26 @@ void processRecevedPacket(){
 			// remove items not in server list (picked up or despawned)
 			std::erase_if(items, [&](const Item& li) {
 				return !serverIds.contains(li.id);
+			});
+		}
+
+		std::vector<Pig> serverPigs = unpackVecFromPacket<Pig>(*packet, ptrPos);
+		{
+			std::unordered_set<uint32_t> serverPigIds;
+			for (const Pig& sp : serverPigs) {
+				serverPigIds.insert(sp.id);
+				auto it = std::find_if(pigs.begin(), pigs.end(),
+					[&](const Pig& lp) { return lp.id == sp.id; });
+				if (it != pigs.end()) {
+					it->pos = sp.pos;
+					it->rotation = sp.rotation;
+					it->velocity = sp.velocity;
+				} else {
+					pigs.push_back(sp);
+				}
+			}
+			std::erase_if(pigs, [&](const Pig& lp) {
+				return !serverPigIds.contains(lp.id);
 			});
 		}
 
