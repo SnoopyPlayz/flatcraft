@@ -1,10 +1,8 @@
 # flatcraft
 top down minecraft made in **c++** with [raylib](https://github.com/raysan5/raylib). <br>
 
-
-
 ## example Image:
-<img width="650" height="400" alt="image" src="https://github.com/user-attachments/assets/ff81c8c8-835b-4319-8ec0-0f2254d7f236" />
+<img width="1277" height="719" alt="flatcraft" src="https://github.com/user-attachments/assets/658b51b7-82d6-4234-bca3-23ae017f9b8a" />
 
 ## building
 install premake5, clang then:
