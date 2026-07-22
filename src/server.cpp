@@ -10,13 +10,11 @@
 #include "server.hpp"
 #include "map.hpp"
 #include "vector.hpp"
-#include <stdio.h>
 #include <stop_token>
 #include <sys/types.h>
 #include <unordered_map>
 #include <vector>
 #include <raymath.h>
-#include <stdio.h>
 #include <lz4.h>
 #include "item.hpp"
 #include "pig.hpp"
